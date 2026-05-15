@@ -331,7 +331,7 @@ def generate_daily_summary(trans_df):
 
 # ==================== 主函数 ====================
 def main():
-    output_dir = r"C:\Users\CoirRaincoat\PyCharmMiscProject\MathModeling"
+    output_dir = r"/CSJ-MathModeling"
     
     print("=" * 60)
     print("生成自助量贩餐厅仿真数据...")
