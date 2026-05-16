@@ -55,7 +55,7 @@ class DataLoader:
     5. _build_basket(): 构建购物篮
 
     对外提供统一接口获取不同粒度的数据:
-    - get_daily_data(): 日级汇总 (236天)
+    - get_daily_data(): 日级汇总 (完整31个月)
     - get_meal_data(): 餐次级汇总 (午餐+晚餐)
     - get_transaction_data(): 融合后的交易明细
     - get_dish_info(): 菜品信息表
@@ -98,30 +98,47 @@ class DataLoader:
 
     def _load_data(self):
         """
-        加载附件1和附件2原始数据
+        加载附件1和附件2原始数据（含所有 sheet）
 
-        附件1 (餐厅销售流水信息表):
-        - 行数: ~65,534 条
-        - 每行代表一次消费事件
-        - 关键字段: indent_id, consume_time, consume_money, calories/protein/fat/carbs/fiber
+        附件1 (餐厅销售流水信息表) — 3个 sheet:
+        - indent_1: 2022-09-02 → 2023-11-28 (~64,587 订单)
+        - indent_2: 2023-11-28 → 2024-12-30 (~65,536 订单)
+        - indent_3: 2024-12-30 → 2025-04-30 (~19,503 订单)
+        - 合计: ~149,626 订单, 时间跨度 2022-09 至 2025-04 (31个月)
 
-        附件2 (部分消费订单菜品具体信息表):
-        - 行数: ~65,535 条
-        - 每行代表订单中一道菜品的消费详情
-        - 关键字段: indent_id, dish_serial, dish_name, total_price, weight, unit_price
-        - 覆盖约 18.3% 的订单 (11,828/64,587)，即并非所有订单都有菜品明细
+        附件2 (部分消费订单菜品具体信息表) — 15个 sheet:
+        - indent_details_1~15: 共 ~72,000 条菜品明细记录
+        - 覆盖仅部分订单的菜品级详情
+
+        附件3 (数据说明) — 2个 sheet:
+        - 附件1数据说明: 18 个字段的英文/中文对照
+        - 附件2数据说明: 14 个字段的英文/中文对照
         """
-        print('\n[1/5] 加载原始数据...')
+        print('\n[1/5] 加载原始数据（所有 sheet）...')
 
-        # 加载附件1: 餐厅流水数据 (~12.8MB)
-        self.df1_raw = pd.read_excel(ATTACHMENT1)
-        print(f'  附件1加载完成: {self.df1_raw.shape[0]:,} 行, '
+        # --- 附件1: 加载全部 3 个 sheet 并拼接 ---
+        df1_sheets = []
+        for sheet_name in pd.ExcelFile(ATTACHMENT1).sheet_names:
+            df_sheet = pd.read_excel(ATTACHMENT1, sheet_name=sheet_name)
+            df1_sheets.append(df_sheet)
+            print(f'  附件1 [{sheet_name}]: {len(df_sheet):,} 行')
+        self.df1_raw = pd.concat(df1_sheets, ignore_index=True)
+        print(f'  附件1 合计加载完成: {self.df1_raw.shape[0]:,} 行, '
               f'{self.df1_raw.shape[1]} 列')
 
-        # 加载附件2: 菜品消费详情数据 (~5.5MB)
-        self.df2_raw = pd.read_excel(ATTACHMENT2)
-        print(f'  附件2加载完成: {self.df2_raw.shape[0]:,} 行, '
+        # --- 附件2: 加载全部 15 个 sheet 并拼接 ---
+        df2_sheets = []
+        for sheet_name in pd.ExcelFile(ATTACHMENT2).sheet_names:
+            df_sheet = pd.read_excel(ATTACHMENT2, sheet_name=sheet_name)
+            df2_sheets.append(df_sheet)
+            if len(df_sheet) > 500:
+                print(f'  附件2 [{sheet_name}]: {len(df_sheet):,} 行')
+            else:
+                pass  # 小型 sheet 不逐个打印
+        self.df2_raw = pd.concat(df2_sheets, ignore_index=True)
+        print(f'  附件2 合计加载完成: {self.df2_raw.shape[0]:,} 行, '
               f'{self.df2_raw.shape[1]} 列')
+        print(f'  附件2 覆盖订单数: {self.df2_raw["indent_id"].nunique():,}')
 
         # 显示列名以供验证
         print(f'  附件1列名: {list(self.df1_raw.columns)}')
@@ -572,22 +589,23 @@ class DataLoader:
         daily = self.df_daily
 
         # 附件1 摘要
-        print(f'\n附件1 (流水数据):')
+        print(f'\n附件1 (流水数据 — 3 sheet 合计):')
         print(f'  总订单数: {df1["indent_id"].nunique():,}')
         print(f'  总交易记录: {len(df1):,}')
         print(f'  日期跨度: {df1["date"].min()} 至 {df1["date"].max()}')
+        print(f'  营业天数: {df1["date"].nunique()}')
         print(f'  日均订单数: {daily["total_orders"].mean():.0f}')
         print(f'  日均销售额: {daily["total_sales"].mean():.0f} 元')
         print(f'  平均客单价: {daily["avg_order_value"].mean():.2f} 元')
         print(f'  人均热量: {daily["avg_calories_per_person"].mean():.0f} kcal')
 
         # 附件2 摘要
-        print(f'\n附件2 (菜品详情):')
+        print(f'\n附件2 (菜品详情 — 15 sheet 合计):')
         print(f'  总记录数: {len(df2):,}')
         print(f'  涉及订单数: {df2["indent_id"].nunique():,}')
         print(f'  唯一菜品数: {df2["dish_name"].nunique()}')
         print(f'  平均每单菜品数: '
-              f'{len(df2) / df2["indent_id"].nunique():.1f}')
+              f'{len(df2) / max(df2["indent_id"].nunique(), 1):.1f}')
         print(f'  平均菜品单价: {df2["unit_price"].mean():.2f} 元')
 
         # 餐次分布
