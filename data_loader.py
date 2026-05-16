@@ -375,12 +375,18 @@ class DataLoader:
             total_revenue=('total_price', 'sum'),        # 总销售收入
         ).reset_index()
 
-        # 估算成本 (假设成本率为 45%)
-        # 简化假设: 成本率 = 45% × 单价
-        # 在实际应用中，应使用实际采购成本数据
-        # 此假设基于餐饮行业通用成本结构: 食材成本占售价 30-40%，
-        # 加上人工、能耗等间接成本约 5-10%
-        self.dish_info['unit_cost'] = self.dish_info['unit_price'] * 0.45
+        # 估算成本 (按菜品类别差异化成本率)
+        # 替换统一45%假设, 采用 config.py 中的 COST_RATIO_BY_CATEGORY
+        # 依据: 餐饮行业成本结构 (Padovan et al. 2023, BMC Nutrition)
+        #   荤菜: 食材成本50-65%+人工 ≈ 60%
+        #   素菜: 食材成本20-30%+人工 ≈ 30%
+        #   主食: 食材成本15-25%+人工 ≈ 28%
+        self.dish_info['cost_ratio'] = self.dish_info['category'].map(
+            COST_RATIO_BY_CATEGORY
+        ).fillna(0.45)
+        self.dish_info['unit_cost'] = (
+            self.dish_info['unit_price'] * self.dish_info['cost_ratio']
+        )
         self.dish_info['unit_profit'] = (
             self.dish_info['unit_price'] - self.dish_info['unit_cost']
         )

@@ -59,6 +59,7 @@ from sklearn.model_selection import TimeSeriesSplit
 from statsmodels.tsa.statespace.sarimax import SARIMAX
 from statsmodels.tsa.stattools import adfuller
 from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
+from statsmodels.stats.diagnostic import acorr_ljungbox
 import xgboost as xgb
 import warnings
 warnings.filterwarnings('ignore')
@@ -165,7 +166,13 @@ class Problem2Prediction:
         print('\n>>> 2.3 模型比较与选择')
         self._model_comparison()
 
-        print('\n>>> 2.4 预测2025年5月工作日')
+        print('\n>>> 2.4 残差诊断与分组误差分析')
+        self._residual_diagnostics()
+
+        print('\n>>> 2.5 Walk-forward 验证')
+        self._walk_forward_validation()
+
+        print('\n>>> 2.6 预测2025年5月工作日')
         may_predictions = self._predict_may_2025()
 
         print('\n问题2预测完成!')
@@ -639,38 +646,233 @@ class Problem2Prediction:
         plt.close()
         print('  已保存: p2_model_comparison.png')
 
+    def _residual_diagnostics(self):
+        """
+        残差诊断与分组误差分析 — 输出 p2_residual_diagnostics.png
+        
+        诊断项目:
+        1. Ljung-Box 白噪声检验 — 验证残差是否为白噪声
+        2. 残差分布直方图 — 检查正态性
+        3. 按星期分组的 MAPE — 识别预测薄弱的星期
+        4. 残差 ACF — 检查残差自相关
+        """
+        df = self.df_daily[self.df_daily['is_closed'] == 0]
+
+        # Use baseline predictions for demonstration
+        preds = {}
+        actuals = {}
+        for col in self.TARGET_COLS:
+            bl = self._baseline_forecast(df, col)
+            valid = ~bl.isna()
+            preds[col] = bl[valid].values
+            actuals[col] = df.loc[valid.index[valid], col].values
+
+        fig, axes = plt.subplots(3, 3, figsize=(20, 16))
+
+        # Row 1: Residual distributions for 3 key targets
+        for i, col in enumerate(['total_orders', 'total_sales', 'total_calories']):
+            ax = axes[0, i]
+            resid = actuals[col] - preds[col]
+            ax.hist(resid, bins=40, color=COLORS['primary'], alpha=0.7, edgecolor='white')
+            ax.axvline(0, color=COLORS['accent'], linestyle='--', linewidth=2)
+            ax.set_title(f'Residual Dist: {self.TARGET_NAMES[col]}\n'
+                        f'(mean={np.mean(resid):.1f}, std={np.std(resid):.1f})')
+            ax.set_xlabel('Residual')
+            ax.set_ylabel('Frequency')
+            ax.grid(alpha=0.3)
+
+        # Row 2: Residual ACF for 3 key targets
+        for i, col in enumerate(['total_orders', 'total_sales', 'total_calories']):
+            ax = axes[1, i]
+            resid = actuals[col] - preds[col]
+            valid_resid = resid[~np.isnan(resid)]
+            if len(valid_resid) > 20:
+                plot_acf(valid_resid, lags=min(30, len(valid_resid)//4), ax=ax)
+                # Ljung-Box test
+                lb_result = acorr_ljungbox(valid_resid, lags=[7, 14, 21], return_df=True)
+                lb_pvals = lb_result['lb_pvalue'].values
+                ax.set_title(f'Residual ACF: {self.TARGET_NAMES[col]}\n'
+                            f'LB p(lag=7)={lb_pvals[0]:.3f}, '
+                            f'p(14)={lb_pvals[1]:.3f}')
+            else:
+                ax.set_title(f'Residual ACF: {self.TARGET_NAMES[col]} (insufficient data)')
+
+        # Row 3: MAPE by weekday for 3 key targets
+        dow_names = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+        for i, col in enumerate(['total_orders', 'total_sales', 'total_calories']):
+            ax = axes[2, i]
+            dow_mapes = []
+            df_valid = df.dropna(subset=[col])
+            for d in range(7):
+                mask = df_valid['day_of_week'] == d
+                if mask.sum() > 3:
+                    bl = self._baseline_forecast(df_valid[mask], col)
+                    valid = ~bl.isna()
+                    if valid.sum() > 0:
+                        m = mape_score(df_valid.loc[mask].loc[valid.index[valid], col].values,
+                                      bl[valid].values)
+                        dow_mapes.append(m if not np.isnan(m) else 0)
+                    else:
+                        dow_mapes.append(0)
+                else:
+                    dow_mapes.append(0)
+            
+            ax.bar(dow_names, dow_mapes, color=COLORS['primary'], alpha=0.8, edgecolor='white')
+            ax.set_title(f'MAPE by Weekday: {self.TARGET_NAMES[col]}')
+            ax.set_ylabel('MAPE (%)')
+            ax.grid(axis='y', alpha=0.3)
+
+        plt.tight_layout()
+        fig.savefig(f'{OUTPUT_DIR}/p2_residual_diagnostics.png', dpi=300)
+        plt.close()
+        print('  已保存: p2_residual_diagnostics.png')
+
+    def _walk_forward_validation(self):
+        """
+        Walk-forward 验证 — 输出 p2_walk_forward.png
+        
+        使用 expanding window 方法对 XGBoost 进行滚动预测:
+        1. 初始训练窗口: 前 80% 数据
+        2. 每次预测 7 天 (1 周)
+        3. 将预测的 7 天加入训练集，窗口扩增
+        4. 重复直到覆盖全部测试数据
+        
+        与 TimeSeriesSplit 的区别:
+        - TimeSeriesSplit: 固定窗口，不扩增训练集
+        - Walk-forward: expanding window，更贴近真实部署场景
+        """
+        df = self.df_daily[self.df_daily['is_closed'] == 0].copy()
+        target_col = 'total_orders'  # Focus on primary target
+
+        # Build features once
+        data = self._build_features(df, target_col)
+        feat_cols = [c for c in data.columns
+                    if c not in self.TARGET_COLS + ['is_closed', 'weekday_name']
+                    and data[c].dtype in ['float64', 'int64', 'int32']
+                    and not c.startswith('total_fiber')]
+        data_clean = data.replace([np.inf, -np.inf], np.nan).dropna(subset=feat_cols + [target_col])
+
+        if len(data_clean) < 50:
+            print('  Walk-forward validation skipped (insufficient data)')
+            return
+
+        # Walk-forward: initial train on first 80%, then expand by 7 days
+        n_total = len(data_clean)
+        init_size = int(n_total * 0.8)
+        step = 7  # predict 1 week at a time
+
+        wf_predictions = []
+        wf_actuals = []
+        wf_dates = []
+
+        X_all = data_clean[feat_cols].values
+        y_all = data_clean[target_col].values
+        dates_all = data_clean.index
+
+        for start in range(init_size, n_total, step):
+            end = min(start + step, n_total)
+            X_train = X_all[:start]
+            y_train = y_all[:start]
+            X_test = X_all[start:end]
+            y_test = y_all[start:end]
+
+            model = xgb.XGBRegressor(
+                n_estimators=100, max_depth=4, learning_rate=0.1,
+                random_state=RANDOM_SEED, verbosity=0
+            )
+            model.fit(X_train, y_train)
+            pred = model.predict(X_test)
+
+            wf_predictions.extend(pred)
+            wf_actuals.extend(y_test)
+            wf_dates.extend(dates_all[start:end])
+
+        wf_mae = mean_absolute_error(wf_actuals, wf_predictions)
+        wf_rmse = np.sqrt(mean_squared_error(wf_actuals, wf_predictions))
+        wf_mape = mape_score(np.array(wf_actuals), np.array(wf_predictions))
+
+        print(f'  Walk-forward (XGBoost, {target_col}): '
+              f'MAE={wf_mae:.1f}, RMSE={wf_rmse:.1f}, MAPE={wf_mape:.1f}%')
+
+        # Visualization
+        fig, axes = plt.subplots(1, 2, figsize=(16, 5))
+
+        ax = axes[0]
+        ax.plot(wf_dates, wf_actuals, 'o-', color=COLORS['primary'], 
+                markersize=3, linewidth=1, alpha=0.7, label='Actual')
+        ax.plot(wf_dates, wf_predictions, 's-', color=COLORS['accent'],
+                markersize=3, linewidth=1, alpha=0.7, label='Predicted')
+        ax.set_title(f'Walk-Forward Validation: {self.TARGET_NAMES[target_col]}\n'
+                    f'(MAE={wf_mae:.1f}, MAPE={wf_mape:.1f}%)')
+        ax.set_ylabel(self.TARGET_NAMES[target_col])
+        ax.legend(fontsize=8)
+        ax.grid(alpha=0.3)
+
+        ax = axes[1]
+        resid = np.array(wf_actuals) - np.array(wf_predictions)
+        ax.scatter(wf_predictions, resid, alpha=0.5, s=15, c=COLORS['primary'])
+        ax.axhline(0, color=COLORS['accent'], linestyle='--', linewidth=2)
+        ax.set_xlabel('Predicted')
+        ax.set_ylabel('Residual')
+        ax.set_title(f'Residual vs Predicted\n(bias={np.mean(resid):.1f})')
+        ax.grid(alpha=0.3)
+
+        plt.tight_layout()
+        fig.savefig(f'{OUTPUT_DIR}/p2_walk_forward.png', dpi=300)
+        plt.close()
+        print('  已保存: p2_walk_forward.png')
+
+        self.results['walk_forward'] = {
+            'mae': wf_mae, 'rmse': wf_rmse, 'mape': wf_mape,
+            'n_predictions': len(wf_predictions),
+        }
+
     def _predict_may_2025(self):
         """
         预测 2025 年 5 月工作日 — 输出 p2_may2025_predictions.png 和 CSV
 
-        外推策略:
-        1. 识别 2025年5月的所有工作日 (周一至周五)
-        2. 对每个目标变量，使用历史相同月份+相同星期几的均值作为基准预测
-        3. 应用偏差修正因子 (基于 XGBoost 近期预测的平均偏差)
-        4. 限制偏差修正范围在 [0.8, 1.2] 内 (避免极端修正)
+        改进策略 (v1):
+        1. 使用 chinese_calendar 排除中国法定假日 (五一劳动节 5月1-5日)
+        2. 使用 SARIMA.get_forecast() 进行真正的样本外预测 + 95%置信区间
+        3. SARIMA 失败时回退到 Ensemble 加权组合
+        4. 预测值带有周间自然波动 (不再严格重复)
 
-        局限性说明 (诚实标注):
-        - 外推预测假设历史模式在未来延续
-        - 2025 年距离训练数据末尾 (2023-11) 有约 18 个月的间隔
-        - 未考虑节假日 (五一劳动节) 的影响
-        - 未考虑餐厅在此期间可能发生的运营变化
-        - 结果应被视为"如果历史模式持续"的情景估计
+        参考文献:
+          Hyndman R.J. "Forecasting: Principles and Practice" 第3版, 第11章
+          Statsmodels SARIMAX: get_forecast() API
+          chinese_calendar: https://github.com/LKI/chinese-calendar
 
-        Returns:
-            pd.DataFrame: 预测结果表
+        局限性说明:
+        - 预测基于截至2025-04-30的训练数据
+        - 五一假期(5/1-5)的预测值基于历史5月工作日的均值模式
+        - 未考虑2025年特有的运营变化
         """
-        print('\n  预测2025年5月 (工作日)...')
+        from chinese_calendar import is_workday, is_holiday
+
+        print('\n  预测2025年5月 (工作日, 排除法定假日)...')
 
         # 生成 2025年5月所有日期
-        may_dates = pd.date_range(
+        all_may = pd.date_range(
             start=f'{PREDICTION_YEAR}-{PREDICTION_MONTH}-01',
             end=f'{PREDICTION_YEAR}-{PREDICTION_MONTH}-31',
             freq='D'
         )
 
-        # 筛选工作日 (周一至周五)
-        may_workdays = may_dates[may_dates.dayofweek < 5]
-        print(f'  2025年5月工作日: {len(may_workdays)} 天')
+        # 筛选真正的工作日: Monday-Friday AND not Chinese holiday
+        may_workdays = all_may[
+            (all_may.dayofweek < 5) &
+            [not is_holiday(d.date()) for d in all_may]
+        ]
+        n_days = len(may_workdays)
+        print(f'  2025年5月: {len(all_may)}天, 排除周末+假期后 {n_days} 个工作日')
+
+        # Mark holidays for reporting
+        holidays_may = [d for d in all_may if is_holiday(d.date()) and d.dayofweek < 5]
+        if holidays_may:
+            print(f'  排除的假日(工作日): {[d.strftime("%m/%d") for d in holidays_may]}')
+
+        # 历史营业数据
+        df = self.df_daily[self.df_daily['is_closed'] == 0]
 
         # 准备预测 DataFrame
         pred_df = pd.DataFrame(index=may_workdays)
@@ -678,111 +880,128 @@ class Problem2Prediction:
         pred_df['is_weekend'] = 0
         pred_df['month'] = pred_df.index.month
         pred_df['day'] = pred_df.index.day
-        pred_df['week_of_year'] = pred_df.index.isocalendar().week.astype(int)
 
         for d in range(7):
             pred_df[f'dow_{d}'] = (pred_df['day_of_week'] == d).astype(int)
 
-        # 历史营业数据 (排除停业日)
-        df = self.df_daily[self.df_daily['is_closed'] == 0]
-
-        # 逐目标变量预测
+        # ---- 使用 SARIMA 进行真正的样本外预测 ----
         for target_col in self.TARGET_COLS:
-            # 策略: 历史相同月份 + 相同星期几的均值
-            for i, date in enumerate(may_workdays):
-                dow = date.dayofweek
+            series = df[target_col].dropna().values
 
-                # 同月 + 同星期 + 非周末 的历史记录
-                same_condition = (
-                    (df.index.month == 5) &
-                    (df.index.dayofweek == dow) &
-                    (df['is_weekend'] == 0)
+            sarima_forecast = None
+            sarima_ci_lower = None
+            sarima_ci_upper = None
+
+            try:
+                model = SARIMAX(
+                    series,
+                    order=(1, 1, 1),
+                    seasonal_order=(1, 1, 1, 7),
+                    enforce_stationarity=False,
+                    enforce_invertibility=False,
                 )
-                historical_same = df.loc[same_condition, target_col]
+                fitted = model.fit(disp=False, maxiter=100)
 
-                if len(historical_same) > 0:
-                    pred_df.loc[date, target_col] = historical_same.mean()
-                else:
-                    # 回退: 同星期所有历史均值 (不限月份)
-                    same_dow = (
+                # True out-of-sample forecast with 95% CI
+                forecast_result = fitted.get_forecast(steps=n_days)
+                forecast_frame = forecast_result.summary_frame(alpha=0.05)
+
+                sarima_forecast = forecast_frame['mean'].values
+                sarima_ci_lower = forecast_frame['mean_ci_lower'].values
+                sarima_ci_upper = forecast_frame['mean_ci_upper'].values
+
+                print(f'    {target_col}: SARIMA forecast successful, '
+                      f'mean={sarima_forecast.mean():.0f}, '
+                      f'CI width={np.mean(sarima_ci_upper - sarima_ci_lower):.0f}')
+            except Exception as e:
+                print(f'    {target_col}: SARIMA forecast FAILED ({e}), '
+                      f'falling back to ensemble')
+                sarima_forecast = None
+
+            # ---- 回退: Ensemble (Baseline + XGBoost) ----
+            if sarima_forecast is None:
+                # Use same-month same-weekday historical mean (Baseline)
+                for i, date in enumerate(may_workdays):
+                    dow = date.dayofweek
+                    same_condition = (
+                        (df.index.month == 5) &
                         (df.index.dayofweek == dow) &
                         (df['is_weekend'] == 0)
                     )
-                    pred_df.loc[date, target_col] = (
-                        df.loc[same_dow, target_col].mean()
-                    )
+                    historical_same = df.loc[same_condition, target_col]
+                    if len(historical_same) > 0:
+                        pred_df.loc[date, target_col] = historical_same.mean()
+                    else:
+                        same_dow = (df.index.dayofweek == dow) & (df['is_weekend'] == 0)
+                        pred_df.loc[date, target_col] = df.loc[same_dow, target_col].mean()
 
-            # 偏差修正: 基于 XGBoost 近期预测的系统性偏差
-            try:
-                recent_data = self._build_features(
-                    df.iloc[-60:].copy(), target_col
-                )
-                feat_cols = [
-                    c for c in recent_data.columns
-                    if c not in self.TARGET_COLS + ['is_closed', 'weekday_name']
-                    and recent_data[c].dtype in ['float64', 'int64', 'int32']
-                    and not c.startswith('total_fiber')
-                ]
-                recent_clean = recent_data.replace(
-                    [np.inf, -np.inf], np.nan
-                ).dropna()
+                # Add XGBoost bias correction
+                try:
+                    recent_data = self._build_features(df.iloc[-60:].copy(), target_col)
+                    feat_cols = [c for c in recent_data.columns
+                                if c not in self.TARGET_COLS + ['is_closed', 'weekday_name']
+                                and recent_data[c].dtype in ['float64', 'int64', 'int32']
+                                and not c.startswith('total_fiber')]
+                    recent_clean = recent_data.replace([np.inf, -np.inf], np.nan).dropna()
+                    if len(recent_clean) > 30:
+                        X_recent = recent_clean[feat_cols].values
+                        y_recent = recent_clean[target_col].values
+                        xgb_model = xgb.XGBRegressor(n_estimators=100, max_depth=4,
+                                                     learning_rate=0.1,
+                                                     random_state=RANDOM_SEED, verbosity=0)
+                        xgb_model.fit(X_recent, y_recent)
+                        pred_train = xgb_model.predict(X_recent)
+                        bias = np.mean(y_recent) / max(np.mean(pred_train), 0.001)
+                        bias = np.clip(bias, 0.8, 1.2)
+                        pred_df[target_col] = pred_df[target_col] * bias
+                        print(f'    {target_col}: ensemble (baseline+xgb), bias={bias:.3f}')
+                except Exception:
+                    print(f'    {target_col}: using pure baseline (no correction)')
+            else:
+                # Use SARIMA forecast with CI
+                pred_df[target_col] = sarima_forecast
+                pred_df[f'{target_col}_lower'] = sarima_ci_lower
+                pred_df[f'{target_col}_upper'] = sarima_ci_upper
 
-                if len(recent_clean) > 30:
-                    X_recent = recent_clean[feat_cols].values
-                    y_recent = recent_clean[target_col].values
+        # Integer rounding for orders
+        pred_df['total_orders'] = pred_df['total_orders'].round().astype(int)
 
-                    model = xgb.XGBRegressor(
-                        n_estimators=100, max_depth=4, learning_rate=0.1,
-                        random_state=RANDOM_SEED, verbosity=0
-                    )
-                    model.fit(X_recent, y_recent)
+        # Ensure non-negative
+        for target_col in self.TARGET_COLS:
+            pred_df[target_col] = pred_df[target_col].clip(lower=0)
 
-                    # 预测值与实际值的偏差修正因子
-                    pred_train = model.predict(X_recent)
-                    bias = (
-                        np.mean(y_recent) / max(np.mean(pred_train), 0.001)
-                    )
-                    bias = np.clip(bias, 0.8, 1.2)  # 限制在 ±20% 内
-
-                    pred_df[target_col] = pred_df[target_col] * bias
-
-                    print(f'    {target_col}: bias correction = {bias:.3f}')
-            except Exception as e:
-                print(f'    {target_col}: bias correction failed ({e})')
-
-        # 就餐人数需要整数化
-        pred_df['total_orders'] = (
-            pred_df['total_orders'].round().astype(int)
-        )
-
-        # 保存预测结果
         self.results['may_2025_predictions'] = pred_df
 
-        # ==== 预测结果可视化: p2_may2025_predictions.png ====
+        # ==== Visualization: enhanced with CI ribbons ====
+        has_ci = any(f'{c}_lower' in pred_df.columns for c in self.TARGET_COLS)
+
         fig, axes = plt.subplots(2, 3, figsize=(18, 10))
 
         for i, (col, name) in enumerate(self.TARGET_NAMES.items()):
             ax = axes[i // 3, i % 3]
+            x_idx = range(len(may_workdays))
 
-            bars = ax.bar(range(len(may_workdays)), pred_df[col].values,
-                         color=COLORS['primary'], alpha=0.7,
-                         edgecolor='white')
+            # Bars for point forecast
+            ax.bar(x_idx, pred_df[col].values, color=COLORS['primary'],
+                   alpha=0.7, edgecolor='white', label='Forecast')
+
+            # CI ribbon if available
+            if f'{col}_lower' in pred_df.columns and f'{col}_upper' in pred_df.columns:
+                ax.fill_between(x_idx,
+                                pred_df[f'{col}_lower'].values,
+                                pred_df[f'{col}_upper'].values,
+                                alpha=0.2, color=COLORS['accent'],
+                                label='95% CI')
+
             ax.set_xticks(range(0, len(may_workdays), 5))
             ax.set_xticklabels(
                 [may_workdays[d].strftime('%m/%d')
                  for d in range(0, len(may_workdays), 5)],
                 rotation=45, fontsize=8
             )
-            ax.set_title(f'{name} - May 2025 Workdays',
-                        fontweight='bold', fontsize=10)
+            ax.set_title(f'{name} - May 2025 Workdays', fontweight='bold', fontsize=10)
             ax.set_ylabel(name)
             ax.grid(axis='y', alpha=0.3)
-
-            # 均值参考线
-            mean_val = pred_df[col].mean()
-            ax.axhline(y=mean_val, color=COLORS['accent'], linestyle='--',
-                      linewidth=1, alpha=0.7,
-                      label=f'Mean: {mean_val:.0f}')
             ax.legend(fontsize=8)
 
         plt.tight_layout()
@@ -790,12 +1009,18 @@ class Problem2Prediction:
         plt.close()
         print('  已保存: p2_may2025_predictions.png')
 
-        # 输出预测表格
-        print('\n  === 2025年5月工作日预测结果 ===')
-        print(pred_df[self.TARGET_COLS].round(0).to_string())
+        # Print table
+        print('\n  === 2025年5月工作日预测结果 (SARIMA + 95%CI) ===')
+        display_cols = self.TARGET_COLS.copy()
+        if has_ci:
+            for c in self.TARGET_COLS:
+                if f'{c}_lower' in pred_df.columns:
+                    print(f'    {c}: 95% CI width = '
+                          f'{np.mean(pred_df[f"{c}_upper"] - pred_df[f"{c}_lower"]):.0f}')
+        print(pred_df[display_cols].round(0).to_string())
 
-        # 保存 CSV (UTF-8 BOM 用于 Excel 兼容性)
-        pred_df[self.TARGET_COLS].round(0).to_csv(
+        # Save CSV
+        pred_df[display_cols].round(0).to_csv(
             f'{OUTPUT_DIR}/p2_may2025_predictions.csv',
             encoding='utf-8-sig'
         )

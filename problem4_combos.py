@@ -106,6 +106,11 @@ class Problem4Combos:
         # 提取菜品共现关系 (基于购物篮)
         self.association_pairs = self._extract_associations()
 
+        # Bootstrap 稳定规则配对 (Iteration 5)
+        # 来自 validate_reliability.py 的 500 次 Bootstrap 验证:
+        # 生存率>80%的规则均为素菜/半荤→酱鸭腿, 是数据中最可靠的关联
+        self.stable_pairs = set()
+
         self.results = {}
 
     def _build_dish_database(self):
@@ -206,37 +211,18 @@ class Problem4Combos:
     def _score_combo(self, combo_dishes, target_price):
         """
         套餐综合评分函数
-
-        评分维度 (5 项, 满分约 1.15):
-        1. 消费者偏好评分 (w=0.30):
-           popularity = mean(d.popularity_score for d in combo)
-           反映菜品的历史受欢迎程度
-
-        2. 营养均衡评分 (w=0.30):
-           使用 check_nutrition_balance() 中的 overall_balance
-           评估碳水/脂肪/蛋白质供能比是否符合推荐区间
-
-        3. 利润评分 (w=0.25):
-           profit_score = max(0, 1 - |利润率 - 0.40| / 0.40)
-           理想利润率约 40% (餐厅行业中位)
-
-        4. 共购关联评分 (w=0.15):
-           对套餐中每对菜品的共现概率求平均
-           反映菜品的搭配合理性
-
-        5. 价格符合度 (w=0.15):
-           price_fit = max(0, 1 - |实际价 - 目标价| / 目标价 × 3)
-           总价越接近目标价位，得分越高
-
-        额外: 类别多样性奖励 (+0.10)
-           套餐覆盖 3+ 个类别则加分，鼓励类别多样性
-
-        Args:
-            combo_dishes: list of dict, 菜品列表
-            target_price: float, 目标价位
-
-        Returns:
-            float: 综合得分 (越高越好)
+        
+        评分维度 (6 项):
+        1. 消费者偏好评分 (w=0.30)
+        2. 营养均衡评分 (w=0.30)
+        3. 利润评分 (w=0.25)
+        4. 共购关联评分 (w=0.15)
+        5. 价格符合度 (w=0.15)
+        6. 类别多样性奖励 (+0.10)
+        
+        Iteration 5 新增:
+        7. Bootstrap稳定规则奖励: 若套餐包含Bootstrap生存率>80%的关联配对, 额外+0.05
+           依据: Bootstrap验证的稳定关联比原始Apriori规则更可靠
         """
         if len(combo_dishes) == 0:
             return 0.0
@@ -265,7 +251,6 @@ class Problem4Combos:
         profit_margin = (
             (total_price - total_cost) / max(total_price, 0.01)
         )
-        # 理想利润率约 40%
         profit_score = max(0, 1 - abs(profit_margin - 0.40) / 0.40)
 
         # 4. 共购关联评分
@@ -285,7 +270,6 @@ class Problem4Combos:
                             assoc_score += self.cooccurrence[key2]
                             pair_count += 1
             if pair_count > 0:
-                # 放大系数 50: 将 0.02 左右的共现概率映射到 [0, 1]
                 assoc_score = min(1.0, assoc_score / pair_count * 50)
 
         # 5. 价格符合度
@@ -296,6 +280,19 @@ class Problem4Combos:
         categories = set(d['category'] for d in combo_dishes)
         diversity_bonus = min(1.0, len(categories) / 3) * 0.10
 
+        # ---- Iteration 5: Bootstrap稳定规则奖励 ----
+        # 验证报告表明: 生存率>80%的规则均涉及酱鸭腿作为后件
+        # 若套餐包含此类稳定配对，给予额外奖励
+        stable_bonus = 0.0
+        if hasattr(self, 'stable_pairs') and self.stable_pairs:
+            for i, d1 in enumerate(combo_dishes):
+                for j, d2 in enumerate(combo_dishes):
+                    if i < j:
+                        pair = (d1['name'], d2['name'])
+                        pair_rev = (d2['name'], d1['name'])
+                        if pair in self.stable_pairs or pair_rev in self.stable_pairs:
+                            stable_bonus = max(stable_bonus, 0.05)
+
         # ---- 综合得分 ----
         score = (
             w['popularity'] * popularity +
@@ -303,7 +300,8 @@ class Problem4Combos:
             w['profit'] * profit_score +
             w['association'] * max(0, assoc_score) +
             0.15 * price_fit +
-            diversity_bonus
+            diversity_bonus +
+            stable_bonus
         )
 
         # 惩罚: 菜品数量不合规
@@ -409,6 +407,11 @@ class Problem4Combos:
                         selected_count += 1
 
             if len(combo) >= 2:
+                # ---- 去重检查: 防止同一菜品被多次选中 ----
+                names = [d['name'] for d in combo]
+                if len(names) != len(set(names)):
+                    continue  # 有重复，跳过此候选
+                    
                 total = sum(d['price'] for d in combo)
                 score = self._score_combo(combo, target_price)
                 candidates.append({

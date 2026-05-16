@@ -60,6 +60,7 @@ problem3_optimization.py — 问题3: 餐厅菜品优化模型与午餐备菜方
 
 import pandas as pd
 import numpy as np
+import os
 import matplotlib.pyplot as plt
 from pulp import (LpProblem, LpMaximize, LpVariable, LpInteger,
                   LpStatus, lpSum, value, PULP_CBC_CMD)
@@ -514,18 +515,35 @@ class Problem3Optimization:
 
         return solution
 
-    def run(self):
+    def run(self, prediction_csv=None):
         """
         运行完整的午餐备菜优化流程
 
+        Args:
+            prediction_csv: str or None. 问题2的预测CSV路径。
+                           若提供，直接读取预测结果；否则回退到历史均值估算。
+
         步骤:
-        1. 确定优化日期 (2025年5月6-12日的工作日)
-        2. 选择参与优化的菜品 (Top 50 午餐菜品)
-        3. 对每个工作日逐日求解 MILP
-        4. 可视化输出 (p3_meal_plans.png)
-        5. 保存详细方案 CSV (p3_meal_plan_detail.csv)
+        1. 加载预测数据 (从问题2输出或历史均值)
+        2. 确定优化日期 (2025年5月6-12日的工作日)
+        3. 选择参与优化的菜品 (Top 50 午餐菜品)
+        4. 对每个工作日逐日求解 MILP
+        5. 可视化输出 (p3_meal_plans.png)
+        6. 保存详细方案 CSV (p3_meal_plan_detail.csv)
         """
-        print('\n>>> 3.1 准备优化数据')
+        print('\n>>> 3.1 加载预测数据')
+
+        # ---- 加载问题2预测结果 ----
+        if prediction_csv is not None and os.path.exists(prediction_csv):
+            pred_df = pd.read_csv(prediction_csv, index_col=0, parse_dates=True)
+            print(f'  从问题2加载预测: {prediction_csv}')
+            print(f'  预测可用日期: {len(pred_df)} 天')
+            use_p2_predictions = True
+        else:
+            pred_df = None
+            use_p2_predictions = False
+            if prediction_csv is not None:
+                print(f'  警告: 预测文件不存在 ({prediction_csv})，回退到历史均值')
 
         # 确定优化日期范围
         plan_dates = pd.date_range(
@@ -533,21 +551,19 @@ class Problem3Optimization:
             end=MEAL_PLAN_END,
             freq='D'
         )
-        # 仅保留工作日 (周一至周五)
         plan_dates = plan_dates[plan_dates.dayofweek < 5]
 
         print(f'  计划日期: {len(plan_dates)} 个工作日 (仅午餐)')
         for d in plan_dates:
             print(f'    {d.strftime("%Y-%m-%d")} ({d.day_name()})')
 
-        # 获取预测的营养需求 (使用历史均值)
-        predicted_nutrition = self._get_predicted_nutrition()
+        # 获取预测的营养需求
+        predicted_nutrition = self._get_predicted_nutrition(pred_df)
 
         print('\n>>> 3.2 选择优化菜品')
         lunch_dishes = self._select_dishes_for_optimization(n_dishes=50)
         print(f'  午餐可选菜品: {len(lunch_dishes)} 种')
 
-        # 统计类别覆盖
         cats_included = {}
         for dish in lunch_dishes:
             cat = self.dish_nutrition.get(dish, {}).get('category', '其他')
@@ -555,17 +571,15 @@ class Problem3Optimization:
         for cat, cnt in cats_included.items():
             print(f'    {cat}: {cnt} 种')
 
-        print('\n>>> 3.3 逐日优化午餐备菜方案')
+        print(f'\n>>> 3.3 逐日优化午餐备菜方案')
+        print(f'  预测来源: {"问题2 SARIMA预测" if use_p2_predictions else "历史同星期均值"}')
 
         all_plans = []
 
         for date in plan_dates:
-            dow = date.dayofweek
+            # 获取预测就餐人数
+            predicted_diners = self._get_predicted_diners(date, pred_df)
 
-            # 获取该星期的预测就餐人数
-            predicted_diners = self._get_predicted_diners(dow)
-
-            # ---- 午餐优化 ----
             print(f'\n  {date.strftime("%Y-%m-%d")} '
                   f'({date.day_name()}) 午餐 '
                   f'(预估 {predicted_diners:.0f} 人)')
@@ -581,62 +595,67 @@ class Problem3Optimization:
 
             print(f'    求解状态: {lunch_solution["status"]}')
             print(f'    备菜总份数: {lunch_solution["total_servings"]:.0f}')
-            print(f'    预期收入: {lunch_solution["total_expected_revenue"]:.0f} 元')
-            print(f'    备菜成本: {lunch_solution["total_cost"]:.0f} 元')
             print(f'    预期利润: {lunch_solution["expected_profit"]:.0f} 元')
-            print(f'    使用菜品数: {len(lunch_solution["dishes"])}')
             print(f'    营养均衡度: '
                   f'{lunch_solution["nutrition_balance"]["overall_balance"]:.2f}')
 
         self.results['meal_plans'] = all_plans
 
-        # ---- 可视化 ----
         self._plot_meal_plans(all_plans, plan_dates)
-
-        # ---- 输出详细方案表格 ----
         self._print_detailed_plans(all_plans)
 
         print('\n问题3 午餐备菜优化完成!')
         return self.results
 
-    def _get_predicted_diners(self, dow):
+    def _get_predicted_diners(self, date, pred_df=None):
         """
         获取预测的午餐就餐人数
-
-        基于历史数据中的星期模式进行估算。
-        实际应用中应直接使用问题2的预测结果。
-
-        估算方法:
-        - 筛选历史同星期的工作日
-        - 计算日均订单量的均值
-        - 若无历史数据，回退到全局均值
+        
+        优先使用问题2的预测结果，否则回退到历史同星期均值。
 
         Args:
-            dow: 星期几 (0=Monday, 6=Sunday)
+            date: pd.Timestamp, 目标日期
+            pred_df: pd.DataFrame or None, 问题2的预测结果
 
         Returns:
             float: 预测的就餐人数
         """
-        df = self.df_daily[self.df_daily['total_orders'] > 0].copy()
+        if pred_df is not None:
+            date_str = date.strftime('%Y-%m-%d')
+            if date_str in pred_df.index.astype(str):
+                val = pred_df.loc[date_str, 'total_orders']
+                return float(val) if not pd.isna(val) else self._fallback_diners(date)
 
+        return self._fallback_diners(date)
+
+    def _fallback_diners(self, date):
+        """回退: 历史同星期均值"""
+        df = self.df_daily[self.df_daily['total_orders'] > 0].copy()
+        dow = date.dayofweek
         same_dow = df[df['day_of_week'] == dow]
         if len(same_dow) > 0:
             return same_dow['total_orders'].mean()
-
         return df['total_orders'].mean()
 
-    def _get_predicted_nutrition(self):
+    def _get_predicted_nutrition(self, pred_df=None):
         """
         获取预测的营养素需求总量
-
-        使用历史人均营养摄入量 × 预测人数来计算。
-        实际应用中应使用问题2的预测结果。
+        
+        优先使用问题2的预测结果，否则回退到历史均值。
 
         Returns:
             dict: 各营养素日均总量
         """
-        df = self.df_daily[self.df_daily['total_orders'] > 0].copy()
+        if pred_df is not None and 'total_calories' in pred_df.columns:
+            return {
+                'calories': pred_df['total_calories'].mean(),
+                'protein': pred_df['total_protein'].mean(),
+                'fat': pred_df['total_fat'].mean(),
+                'carbohydrates': pred_df['total_carbohydrates'].mean(),
+                'fiber': self.df_daily[self.df_daily['total_orders'] > 0]['total_fiber'].mean(),
+            }
 
+        df = self.df_daily[self.df_daily['total_orders'] > 0].copy()
         return {
             'calories': df['total_calories'].mean(),
             'protein': df['total_protein'].mean(),
