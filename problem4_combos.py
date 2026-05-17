@@ -666,17 +666,17 @@ class Problem4Combos:
         ax1 = axes[0]
 
         metrics = {
-            '总价格 (元)': [
+            'Total Price (Yuan)': [
                 all_combos[p]['total_price'] for p in prices
             ],
-            '利润率 (%)': [
+            'Profit Margin (%)': [
                 all_combos[p]['profit_margin'] for p in prices
             ],
-            '营养均衡度 (%)': [
+            'Nutrition Balance (%)': [
                 all_combos[p]['balance']['overall_balance'] * 100
                 for p in prices
             ],
-            '综合得分 (%)': [
+            'Overall Score (%)': [
                 all_combos[p]['score'] * 100 for p in prices
             ],
         }
@@ -691,9 +691,9 @@ class Problem4Combos:
                    label=metric_name, color=colors_m[i], alpha=0.8)
 
         ax1.set_xticks(x)
-        ax1.set_xticklabels([f'{p} 元' for p in prices], fontsize=10)
-        ax1.set_ylabel('数值')
-        ax1.set_title('各价位套餐指标对比',
+        ax1.set_xticklabels([f'{p} Yuan' for p in prices], fontsize=10)
+        ax1.set_ylabel('Value')
+        ax1.set_title('Combo Comparison Across Price Levels',
                      fontweight='bold', fontsize=11)
         ax1.legend(loc='upper left', fontsize=8)
         ax1.grid(axis='y', alpha=0.3)
@@ -702,8 +702,8 @@ class Problem4Combos:
         ax2 = fig.add_subplot(1, 2, 2, projection='polar')
 
         nutri_keys = ['calories', 'protein', 'fat', 'carbs', 'fiber']
-        nutri_labels = ['热量\n(kcal)', '蛋白质\n(g)',
-                       '脂肪\n(g)', '碳水\n(g)', '纤维\n(g)']
+        nutri_labels = ['Calories\n(kcal)', 'Protein\n(g)',
+                       'Fat\n(g)', 'Carbs\n(g)', 'Fiber\n(g)']
 
         angles = np.linspace(0, 2 * np.pi, len(nutri_keys),
                             endpoint=False).tolist()
@@ -727,11 +727,11 @@ class Problem4Combos:
                     color=color_cycle[i])
             ax2.plot(angles, norm_values, 'o-', linewidth=2,
                     color=color_cycle[i],
-                    label=f'{price} 元')
+                    label=f'{price} Yuan')
 
         ax2.set_xticks(angles[:-1])
         ax2.set_xticklabels(nutri_labels, fontsize=8)
-        ax2.set_title('营养成分对比 (归一化)',
+        ax2.set_title('Nutrition Comparison (Normalized)',
                      fontweight='bold', fontsize=11, pad=20)
         ax2.legend(loc='upper right', bbox_to_anchor=(1.3, 1.1),
                   fontsize=8)

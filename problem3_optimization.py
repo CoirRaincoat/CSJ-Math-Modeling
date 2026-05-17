@@ -77,7 +77,7 @@ from utils import check_nutrition_balance
 
 class Problem3Optimization:
     """
-    问题3: 午餐备菜优化模型 (仅午餐)
+    问题3: 午餐备菜优化模型
 
     使用混合整数线性规划 (MILP) 为 2025年5月6-12日
     的每个工作日生成最优午餐备菜方案。
@@ -689,8 +689,8 @@ class Problem3Optimization:
                       edgecolor='white', linewidth=1)
         ax1.set_xticks(x)
         ax1.set_xticklabels(labels, rotation=30)
-        ax1.set_ylabel('总备菜份数')
-        ax1.set_title('每日午餐备菜量',
+        ax1.set_ylabel('Total Servings')
+        ax1.set_title('Daily Lunch Preparation Quantities',
                       fontweight='bold', fontsize=11)
         ax1.grid(axis='y', alpha=0.3)
 
@@ -712,11 +712,11 @@ class Problem3Optimization:
 
         bars2 = ax2.bar(labels, margins, color=COLORS['success'], alpha=0.7,
                        edgecolor='white', linewidth=1)
-        ax2.set_ylabel('利润率 (%)')
-        ax2.set_title('预期午餐利润率', fontweight='bold',
+        ax2.set_ylabel('Profit Margin (%)')
+        ax2.set_title('Expected Lunch Profit Margin', fontweight='bold',
                       fontsize=11)
         ax2.axhline(y=30, color=COLORS['accent'], linestyle='--', alpha=0.5,
-                   linewidth=1, label='30% 目标')
+                   linewidth=1, label='30% target')
         ax2.legend(fontsize=9)
         ax2.tick_params(axis='x', rotation=30)
 
@@ -746,7 +746,7 @@ class Problem3Optimization:
                 textprops={'fontsize': 9}
             )
             ax3.set_title(
-                f'菜品类别分布\n({lunch_plans[0]["date"]} 午餐)',
+                f'Category Distribution\n({lunch_plans[0]["date"]} Lunch)',
                 fontweight='bold', fontsize=11
             )
 
@@ -788,16 +788,16 @@ class Problem3Optimization:
         actual_values += actual_values[:1]
 
         ax4.fill(angles, target_values, alpha=0.15, color=COLORS['primary'],
-                label='DRIs 标准')
+                label='DRIs Target')
         ax4.plot(angles, actual_values, 'o-', color=COLORS['accent'],
-                linewidth=2, label='实际供给')
+                linewidth=2, label='Actual Supply')
         ax4.fill(angles, actual_values, alpha=0.2, color=COLORS['accent'])
         ax4.set_xticks(angles[:-1])
         ax4.set_xticklabels(nutrient_labels_zh, fontsize=9)
         ax4.set_title(
-            f'人均营养满足度\n'
-            f'({plan_for_radar["date"]} 午餐, '
-            f'{diners:.0f} 人)',
+            f'Nutrition Satisfaction per Person\n'
+            f'({plan_for_radar["date"]} Lunch, '
+            f'{diners:.0f} diners)',
             fontweight='bold', fontsize=10, pad=20
         )
         ax4.legend(loc='upper right', bbox_to_anchor=(1.3, 1.1), fontsize=8)
