@@ -207,8 +207,8 @@ class Problem2Prediction:
 
                 ax.plot(series.index, series.values,
                        color=COLORS['primary'], linewidth=1, alpha=0.8)
-                ax.set_title(f'{name}\n(ADF p={adf_result[1]:.4f}, '
-                            f'{"Stationary" if is_stationary else "Non-stationary"})',
+            ax.set_title(f'{name}\n(ADF p={adf_result[1]:.4f}, '
+                        f'{"平稳" if is_stationary else "非平稳"})',
                             fontsize=10, fontweight='bold')
                 ax.set_ylabel(name)
                 ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m'))
@@ -226,9 +226,9 @@ class Problem2Prediction:
         # ==== 图2: ACF / PACF 分析 (以 total_orders 为例) ====
         fig, axes = plt.subplots(1, 2, figsize=(14, 5))
         plot_acf(df['total_orders'].dropna(), lags=30, ax=axes[0])
-        axes[0].set_title('ACF - Daily Orders', fontweight='bold')
+        axes[0].set_title('ACF — 日订单数', fontweight='bold')
         plot_pacf(df['total_orders'].dropna(), lags=30, ax=axes[1])
-        axes[1].set_title('PACF - Daily Orders', fontweight='bold')
+        axes[1].set_title('PACF — 日订单数', fontweight='bold')
         plt.tight_layout()
         fig.savefig(f'{OUTPUT_DIR}/p2_acf_pacf.png', dpi=300)
         plt.close()
@@ -675,10 +675,10 @@ class Problem2Prediction:
             resid = actuals[col] - preds[col]
             ax.hist(resid, bins=40, color=COLORS['primary'], alpha=0.7, edgecolor='white')
             ax.axvline(0, color=COLORS['accent'], linestyle='--', linewidth=2)
-            ax.set_title(f'Residual Dist: {self.TARGET_NAMES[col]}\n'
-                        f'(mean={np.mean(resid):.1f}, std={np.std(resid):.1f})')
-            ax.set_xlabel('Residual')
-            ax.set_ylabel('Frequency')
+            ax.set_title(f'残差分布: {self.TARGET_NAMES[col]}\n'
+                        f'(均值={np.mean(resid):.1f}, 标准差={np.std(resid):.1f})')
+            ax.set_xlabel('残差')
+            ax.set_ylabel('频数')
             ax.grid(alpha=0.3)
 
         # Row 2: Residual ACF for 3 key targets
@@ -691,8 +691,8 @@ class Problem2Prediction:
                 # Ljung-Box test
                 lb_result = acorr_ljungbox(valid_resid, lags=[7, 14, 21], return_df=True)
                 lb_pvals = lb_result['lb_pvalue'].values
-                ax.set_title(f'Residual ACF: {self.TARGET_NAMES[col]}\n'
-                            f'LB p(lag=7)={lb_pvals[0]:.3f}, '
+                ax.set_title(f'残差 ACF: {self.TARGET_NAMES[col]}\n'
+                            f'LB p(7)={lb_pvals[0]:.3f}, '
                             f'p(14)={lb_pvals[1]:.3f}')
             else:
                 ax.set_title(f'Residual ACF: {self.TARGET_NAMES[col]} (insufficient data)')
@@ -718,7 +718,7 @@ class Problem2Prediction:
                     dow_mapes.append(0)
             
             ax.bar(dow_names, dow_mapes, color=COLORS['primary'], alpha=0.8, edgecolor='white')
-            ax.set_title(f'MAPE by Weekday: {self.TARGET_NAMES[col]}')
+            ax.set_title(f'按星期 MAPE: {self.TARGET_NAMES[col]}')
             ax.set_ylabel('MAPE (%)')
             ax.grid(axis='y', alpha=0.3)
 
@@ -799,199 +799,21 @@ class Problem2Prediction:
 
         ax = axes[0]
         ax.plot(wf_dates, wf_actuals, 'o-', color=COLORS['primary'], 
-                markersize=3, linewidth=1, alpha=0.7, label='Actual')
+                markersize=3, linewidth=1, alpha=0.7, label='实际值')
         ax.plot(wf_dates, wf_predictions, 's-', color=COLORS['accent'],
-                markersize=3, linewidth=1, alpha=0.7, label='Predicted')
-        ax.set_title(f'Walk-Forward Validation: {self.TARGET_NAMES[target_col]}\n'
+                markersize=3, linewidth=1, alpha=0.7, label='预测值')
+        ax.set_title(f'Walk-Forward 验证: {self.TARGET_NAMES[target_col]}\n'
                     f'(MAE={wf_mae:.1f}, MAPE={wf_mape:.1f}%)')
         ax.set_ylabel(self.TARGET_NAMES[target_col])
-        ax.legend(fontsize=8)
-        ax.grid(alpha=0.3)
-
-        ax = axes[1]
-        resid = np.array(wf_actuals) - np.array(wf_predictions)
-        ax.scatter(wf_predictions, resid, alpha=0.5, s=15, c=COLORS['primary'])
-        ax.axhline(0, color=COLORS['accent'], linestyle='--', linewidth=2)
-        ax.set_xlabel('Predicted')
-        ax.set_ylabel('Residual')
-        ax.set_title(f'Residual vs Predicted\n(bias={np.mean(resid):.1f})')
-        ax.grid(alpha=0.3)
-
-        plt.tight_layout()
-        fig.savefig(f'{OUTPUT_DIR}/p2_walk_forward.png', dpi=300)
-        plt.close()
-        print('  已保存: p2_walk_forward.png')
-
-        self.results['walk_forward'] = {
-            'mae': wf_mae, 'rmse': wf_rmse, 'mape': wf_mape,
-            'n_predictions': len(wf_predictions),
-        }
-
-    def _predict_may_2025(self):
-        """
-        预测 2025 年 5 月工作日 — 输出 p2_may2025_predictions.png 和 CSV
-
-        改进策略 (v1):
-        1. 使用 chinese_calendar 排除中国法定假日 (五一劳动节 5月1-5日)
-        2. 使用 SARIMA.get_forecast() 进行真正的样本外预测 + 95%置信区间
-        3. SARIMA 失败时回退到 Ensemble 加权组合
-        4. 预测值带有周间自然波动 (不再严格重复)
-
-        参考文献:
-          Hyndman R.J. "Forecasting: Principles and Practice" 第3版, 第11章
-          Statsmodels SARIMAX: get_forecast() API
-          chinese_calendar: https://github.com/LKI/chinese-calendar
-
-        局限性说明:
-        - 预测基于截至2025-04-30的训练数据
-        - 五一假期(5/1-5)的预测值基于历史5月工作日的均值模式
-        - 未考虑2025年特有的运营变化
-        """
-        from chinese_calendar import is_workday, is_holiday
-
-        print('\n  预测2025年5月 (工作日, 排除法定假日)...')
-
-        # 生成 2025年5月所有日期
-        all_may = pd.date_range(
-            start=f'{PREDICTION_YEAR}-{PREDICTION_MONTH}-01',
-            end=f'{PREDICTION_YEAR}-{PREDICTION_MONTH}-31',
-            freq='D'
-        )
-
-        # 筛选真正的工作日: Monday-Friday AND not Chinese holiday
-        may_workdays = all_may[
-            (all_may.dayofweek < 5) &
-            [not is_holiday(d.date()) for d in all_may]
-        ]
-        n_days = len(may_workdays)
-        print(f'  2025年5月: {len(all_may)}天, 排除周末+假期后 {n_days} 个工作日')
-
-        # Mark holidays for reporting
-        holidays_may = [d for d in all_may if is_holiday(d.date()) and d.dayofweek < 5]
-        if holidays_may:
-            print(f'  排除的假日(工作日): {[d.strftime("%m/%d") for d in holidays_may]}')
-
-        # 历史营业数据
-        df = self.df_daily[self.df_daily['is_closed'] == 0]
-
-        # 准备预测 DataFrame
-        pred_df = pd.DataFrame(index=may_workdays)
-        pred_df['day_of_week'] = pred_df.index.dayofweek
-        pred_df['is_weekend'] = 0
-        pred_df['month'] = pred_df.index.month
-        pred_df['day'] = pred_df.index.day
-
-        for d in range(7):
-            pred_df[f'dow_{d}'] = (pred_df['day_of_week'] == d).astype(int)
-
-        # ---- 使用 SARIMA 进行真正的样本外预测 ----
-        for target_col in self.TARGET_COLS:
-            series = df[target_col].dropna().values
-
-            sarima_forecast = None
-            sarima_ci_lower = None
-            sarima_ci_upper = None
-
-            try:
-                model = SARIMAX(
-                    series,
-                    order=(1, 1, 1),
-                    seasonal_order=(1, 1, 1, 7),
-                    enforce_stationarity=False,
-                    enforce_invertibility=False,
-                )
-                fitted = model.fit(disp=False, maxiter=100)
-
-                # True out-of-sample forecast with 95% CI
-                forecast_result = fitted.get_forecast(steps=n_days)
-                forecast_frame = forecast_result.summary_frame(alpha=0.05)
-
-                sarima_forecast = forecast_frame['mean'].values
-                sarima_ci_lower = forecast_frame['mean_ci_lower'].values
-                sarima_ci_upper = forecast_frame['mean_ci_upper'].values
-
-                print(f'    {target_col}: SARIMA forecast successful, '
-                      f'mean={sarima_forecast.mean():.0f}, '
-                      f'CI width={np.mean(sarima_ci_upper - sarima_ci_lower):.0f}')
-            except Exception as e:
-                print(f'    {target_col}: SARIMA forecast FAILED ({e}), '
-                      f'falling back to ensemble')
-                sarima_forecast = None
-
-            # ---- 回退: Ensemble (Baseline + XGBoost) ----
-            if sarima_forecast is None:
-                # Use same-month same-weekday historical mean (Baseline)
-                for i, date in enumerate(may_workdays):
-                    dow = date.dayofweek
-                    same_condition = (
-                        (df.index.month == 5) &
-                        (df.index.dayofweek == dow) &
-                        (df['is_weekend'] == 0)
-                    )
-                    historical_same = df.loc[same_condition, target_col]
-                    if len(historical_same) > 0:
-                        pred_df.loc[date, target_col] = historical_same.mean()
-                    else:
-                        same_dow = (df.index.dayofweek == dow) & (df['is_weekend'] == 0)
-                        pred_df.loc[date, target_col] = df.loc[same_dow, target_col].mean()
-
-                # Add XGBoost bias correction
-                try:
-                    recent_data = self._build_features(df.iloc[-60:].copy(), target_col)
-                    feat_cols = [c for c in recent_data.columns
-                                if c not in self.TARGET_COLS + ['is_closed', 'weekday_name']
-                                and recent_data[c].dtype in ['float64', 'int64', 'int32']
-                                and not c.startswith('total_fiber')]
-                    recent_clean = recent_data.replace([np.inf, -np.inf], np.nan).dropna()
-                    if len(recent_clean) > 30:
-                        X_recent = recent_clean[feat_cols].values
-                        y_recent = recent_clean[target_col].values
-                        xgb_model = xgb.XGBRegressor(n_estimators=100, max_depth=4,
-                                                     learning_rate=0.1,
-                                                     random_state=RANDOM_SEED, verbosity=0)
-                        xgb_model.fit(X_recent, y_recent)
-                        pred_train = xgb_model.predict(X_recent)
-                        bias = np.mean(y_recent) / max(np.mean(pred_train), 0.001)
-                        bias = np.clip(bias, 0.8, 1.2)
-                        pred_df[target_col] = pred_df[target_col] * bias
-                        print(f'    {target_col}: ensemble (baseline+xgb), bias={bias:.3f}')
-                except Exception:
-                    print(f'    {target_col}: using pure baseline (no correction)')
-            else:
-                # Use SARIMA forecast with CI
-                pred_df[target_col] = sarima_forecast
-                pred_df[f'{target_col}_lower'] = sarima_ci_lower
-                pred_df[f'{target_col}_upper'] = sarima_ci_upper
-
-        # Integer rounding for orders
-        pred_df['total_orders'] = pred_df['total_orders'].round().astype(int)
-
-        # Ensure non-negative
-        for target_col in self.TARGET_COLS:
-            pred_df[target_col] = pred_df[target_col].clip(lower=0)
-
-        self.results['may_2025_predictions'] = pred_df
-
-        # ==== Visualization: enhanced with CI ribbons ====
-        has_ci = any(f'{c}_lower' in pred_df.columns for c in self.TARGET_COLS)
-
-        fig, axes = plt.subplots(2, 3, figsize=(18, 10))
-
-        for i, (col, name) in enumerate(self.TARGET_NAMES.items()):
-            ax = axes[i // 3, i % 3]
-            x_idx = range(len(may_workdays))
-
-            # Bars for point forecast
+            ax.legend(fontsize=8, loc='upper left')
             ax.bar(x_idx, pred_df[col].values, color=COLORS['primary'],
-                   alpha=0.7, edgecolor='white', label='Forecast')
-
-            # CI ribbon if available
+                   alpha=0.7, edgecolor='white', label='预测值')
             if f'{col}_lower' in pred_df.columns and f'{col}_upper' in pred_df.columns:
                 ax.fill_between(x_idx,
                                 pred_df[f'{col}_lower'].values,
                                 pred_df[f'{col}_upper'].values,
                                 alpha=0.2, color=COLORS['accent'],
-                                label='95% CI')
+                                label='95% 置信区间')
 
             ax.set_xticks(range(0, len(may_workdays), 5))
             ax.set_xticklabels(
@@ -999,7 +821,7 @@ class Problem2Prediction:
                  for d in range(0, len(may_workdays), 5)],
                 rotation=45, fontsize=8
             )
-            ax.set_title(f'{name} - May 2025 Workdays', fontweight='bold', fontsize=10)
+            ax.set_title(f'{name} — 2025年5月工作日预测', fontweight='bold', fontsize=10)
             ax.set_ylabel(name)
             ax.grid(axis='y', alpha=0.3)
             ax.legend(fontsize=8)

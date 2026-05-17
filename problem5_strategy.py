@@ -596,20 +596,21 @@ class Problem5Strategy:
             else:
                 colors_rec.append(COLORS['primary'])
 
-        ax2.scatter(dish['total_orders'], dish['profit_margin'] * 100,
+        ax2.scatter(dish['total_orders'], dish['unit_price'],
                    c=colors_rec, alpha=0.6, s=30,
                    edgecolors='grey', linewidth=0.3)
-        ax2.set_xlabel('Total Orders')
-        ax2.set_ylabel('Profit Margin (%)')
-        ax2.set_title('Dish Evaluation Matrix\n(Sales × Profit)',
+        ax2.set_xscale('log')
+        ax2.set_xlabel('总订单数 (log)')
+        ax2.set_ylabel('单价 (元)')
+        ax2.set_title('菜品评估矩阵\n(销量 x 单价, 对数轴)',
                      fontweight='bold', fontsize=11)
-        ax2.grid(alpha=0.3)
+        ax2.grid(alpha=0.3, which='both')
 
         # 图例
         legend_elements = [
-            mpatches.Patch(color=COLORS['success'], label='Promote'),
-            mpatches.Patch(color=COLORS['primary'], label='Maintain'),
-            mpatches.Patch(color=COLORS['danger'], label='Replace'),
+            mpatches.Patch(color=COLORS['success'], label='重点推广'),
+            mpatches.Patch(color=COLORS['primary'], label='维持'),
+            mpatches.Patch(color=COLORS['danger'], label='考虑替换'),
         ]
         ax2.legend(handles=legend_elements, loc='upper right', fontsize=8)
 
