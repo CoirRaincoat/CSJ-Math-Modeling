@@ -1,22 +1,5 @@
-"""
-validate_reliability.py — 数据可靠性与模型稳健性验证
-==================================================
-针对 phase_review.md 中识别的不足之处，实施5项系统验证：
+"""validate_reliability.py — 数据可靠性与模型稳健性验证"""
 
-1. 附件2覆盖率偏差分析 — 比较12,944子集 vs 149,626全集的分布一致性(KS检验)
-2. Apriori规则Bootstrap稳定性检验 — 1000次重采样验证规则存活率
-3. XGBoost SHAP特征重要性验证 — 检查模型是否使用了领域合理的特征
-4. MILP参数敏感性分析(Monte Carlo) — 扰动需求/成本/浪费率，评估利润和解的稳定性
-5. 附件1与附件2营养一致性校验 — 同一订单在两表中的营养汇总是否匹配
-
-输出:
-  - output/p1_coverage_bias.png — 覆盖率偏差分析图
-  - output/p1_bootstrap_rules.png — Bootstrap规则稳定性图
-  - output/p2_xgboost_shap.png — SHAP特征重要性图
-  - output/p3_sensitivity.png — MILP参数敏感性图
-  - output/validate_nutrition_consistency.csv — 营养一致性数据
-  - validate_reliability_report.md — 汇总验证报告
-"""
 
 import pandas as pd
 import numpy as np
@@ -45,9 +28,7 @@ COLORS = {
 RANDOM_SEED = 42
 np.random.seed(RANDOM_SEED)
 
-# ============================================================
 # Load full data
-# ============================================================
 print("Loading data...")
 f1 = [f for f in files if '1' in f and f.endswith('.xlsx') and len(f)>10][0]
 f2 = [f for f in files if '2' in f and f.endswith('.xlsx')][0]
@@ -70,9 +51,7 @@ detail_ids = set(df2['indent_id'].unique())
 df1['has_detail'] = df1['indent_id'].isin(detail_ids).astype(int)
 print(f"Full orders: {len(df1):,}, With detail: {df1['has_detail'].sum():,} ({df1['has_detail'].mean()*100:.1f}%)")
 
-# ============================================================
 # 验证1: 附件2覆盖率偏差分析
-# ============================================================
 print("\n" + "="*60)
 print("验证1: 附件2覆盖率偏差分析 — 子集vs全集的分布一致性")
 print("="*60)
@@ -141,9 +120,7 @@ print(f"  KS test (order value): stat={ks_stat:.4f}, p={ks_p:.4f}")
 print(f"  Mean order value: detail={val_detail.mean():.2f}, nodetail={val_nodetail.mean():.2f}")
 print(f"  Saved: p1_coverage_bias.png")
 
-# ============================================================
 # 验证2: Apriori规则Bootstrap稳定性
-# ============================================================
 print("\n" + "="*60)
 print("验证2: Apriori规则Bootstrap稳定性检验 (500次)")
 print("="*60)
@@ -240,9 +217,7 @@ fig.savefig(f'{OUTDIR}/p1_bootstrap_rules.png', dpi=300)
 plt.close()
 print(f"  Saved: p1_bootstrap_rules.png")
 
-# ============================================================
 # 验证3: XGBoost SHAP特征重要性
-# ============================================================
 print("\n" + "="*60)
 print("验证3: XGBoost预测模型特征重要性(SHAP近似)")
 print("="*60)
@@ -305,9 +280,7 @@ plt.close()
 print(f"  Top 5 features: {list(feat_names_sorted[::-1][:5])}")
 print(f"  Saved: p2_xgboost_shap.png")
 
-# ============================================================
 # 验证4: MILP参数敏感性分析(Monte Carlo)
-# ============================================================
 print("\n" + "="*60)
 print("验证4: MILP备菜优化参数敏感性(Monte Carlo扰动)")
 print("="*60)
@@ -403,9 +376,7 @@ fig.savefig(f'{OUTDIR}/p3_sensitivity.png', dpi=300)
 plt.close()
 print(f"  Saved: p3_sensitivity.png")
 
-# ============================================================
 # 验证5: 附件1与附件2营养一致性
-# ============================================================
 print("\n" + "="*60)
 print("验证5: 附件1 vs 附件2 营养数据一致性校验")
 print("="*60)
@@ -465,68 +436,7 @@ fig.savefig(f'{OUTDIR}/validate_nutrition_consistency.png', dpi=300)
 plt.close()
 print(f"  Saved: validate_nutrition_consistency.png")
 
-# ============================================================
 # Generate Summary Report
-# ============================================================
-report = f"""# 数据可靠性与模型稳健性验证报告
-
-## 验证概览
-
-| 编号 | 验证项目 | 方法 | 结论 |
-|------|----------|------|------|
-| V1 | 附件2覆盖率偏差 | KS检验 + 分布对比 | {'通过' if ks_p > 0.01 else '⚠️存在偏差'} |
-| V2 | Apriori规则稳定性 | 500次Bootstrap | 见详情 |
-| V3 | XGBoost特征合理性 | 特征重要性(gain) | 见详情 |
-| V4 | MILP参数敏感性 | 200次Monte Carlo | 利润CV={df_mc['profit'].std()/df_mc['profit'].mean()*100:.1f}% |
-| V5 | 营养数据一致性 | 两表对比MAD/MAPE | 见详情 |
-
-## V1: 附件2覆盖率偏差分析
-
-- 有菜品明细的订单占比: {df1['has_detail'].mean()*100:.1f}%
-- 消费金额KS检验: stat={ks_stat:.4f}, p={ks_p:.4f}
-- 有明细订单均值: {val_detail.mean():.2f}元, 无明细均值: {val_nodetail.mean():.2f}元
-- **结论**: {'两组订单在消费金额分布上无显著差异，附件2子集可代表全量订单的消费特征。' if ks_p > 0.01 else '两组订单存在显著分布差异，附件2的关联规则和偏好统计可能引入选择偏差，需在论文中诚实标注。'}
-
-## V2: Apriori规则Bootstrap稳定性
-
-- 基线规则数: {len(baseline_ruleset)}
-- 500次Bootstrap中发现的唯一规则数: {len(rule_stability)}
-- 生存率>80%的规则数: {stable_count}/{len(baseline_ruleset)}
-- 中位生存率: {np.median(stability_pcts):.0f}%
-- **结论**: 规则稳定性{'良好，多数规则在重采样中持续出现。' if np.median(stability_pcts) > 70 else '一般，部分规则对样本敏感，论文中宜引用生存率较高的规则子集。'}
-
-## V3: XGBoost特征重要性
-
-- Top 5特征: {list(feat_names_sorted[::-1][:5])}
-- 特征类别分布: 滞后特征{lag_feats}个, 时间特征{time_feats}个, 滑动窗口{roll_feats}个
-- **结论**: 特征重要性分布{'合理：滞后特征(捕捉时间依赖性)和时间特征(捕捉周期模式)均占据显著位置，与领域预期一致。' if lag_feats >= 3 and time_feats >= 3 else '需审查：特征分布与预期不符，可能存在数据泄露或特征冗余。'}
-
-## V4: MILP参数敏感性
-
-- 利润均值: {df_mc['profit'].mean():.0f}元/天
-- 利润标准差: {df_mc['profit'].std():.0f}元/天
-- 利润变异系数(CV): {df_mc['profit'].std()/df_mc['profit'].mean()*100:.1f}%
-- 利润5%-95%分位: [{df_mc['profit'].quantile(0.05):.0f}, {df_mc['profit'].quantile(0.95):.0f}]
-- 最敏感参数: 需求因子(|r|={abs(df_mc['demand_factor'].corr(df_mc['profit'])):.3f}) > 成本因子 > 浪费因子
-- **结论**: 需求不确定性是利润波动的主要来源。在当前参数设定下，利润的90%置信区间较宽，建议在论文中报告利润的范围估计而非单点值。
-
-## V5: 附件1 vs 附件2营养一致性
-
-- 匹配订单数: {len(merged):,}
-- 各营养素MAD/MAPE/相关系数见上方输出
-- **结论**: 两表营养数据{'高度一致(所有营养素MAPE<5%)，验证了数据质量。' if all(np.mean(np.abs(merged[c] - merged[f'a2_{c}']) / merged[c].clip(lower=1) * 100) < 5 for c in ['calories','protein','fat','carbohydrates','fiber']) else '存在一定偏差，需检查数据汇总逻辑。'}
-
----
-
-## 综合建议
-
-1. **论文中应披露**: 附件2覆盖率仅{df1['has_detail'].mean()*100:.1f}%，关联规则和偏好统计基于此子集
-2. **Bootstrap验证的规则**: 引用生存率>80%的{stable_count}条规则作为可靠结论
-3. **MILP利润报告**: 使用区间估计[{df_mc['profit'].quantile(0.25):.0f}, {df_mc['profit'].quantile(0.75):.0f}]而非单点值
-4. **XGBoost验证**: Top特征与餐饮领域知识一致，模型可信度较高
-
-*报告生成时间: {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M')}*
-"""
 
 with open(os.path.join(PROJECT_DIR, 'validate_reliability_report.md'), 'w', encoding='utf-8') as f:
     f.write(report)

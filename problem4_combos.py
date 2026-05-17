@@ -1,49 +1,5 @@
-"""
-problem4_combos.py — 问题4: 不同价位套餐优化设计
-============================================
-题目要求:
-  基于该餐厅消费群体的消费习惯以及营养搭配科学性，建立数学模型，
-  优化设计不同价位的套餐，并分别给出10元、15元和20元三个价位的套餐方案。
+"""problem4_combos.py — 问题4: 不同价位套餐优化设计"""
 
-解题思路:
-  1. 套餐设计原则:
-     - 10元"经济基础型": 1主食 + 1荤 + 1素，控制成本
-     - 15元"均衡实用型": 1主食 + 1荤 + 1半荤 + 2素
-     - 20元"丰富营养型": 1主食 + 2荤 + 1半荤 + 2素 + 1其他
-  2. 数学模型: 组合优化 + 启发式搜索
-     目标函数:
-       max Z = w1·偏好得分 + w2·营养均衡得分 + w3·利润得分
-              + w4·共购关联得分 + w5·价格符合度 - 惩罚项
-     约束:
-     - 价格约束: |Σp_i - B| ≤ ε (总价在目标价位附近)
-     - 菜品数量约束: 2 ≤ n ≤ 5
-     - 类别多样性约束: 包含主食
-     - 营养均衡约束: 三大营养素供能比在推荐区间
-  3. 搜索算法:
-     (a) 贪心构建: 按套餐结构逐类选择高偏好度菜品 (200次采样)
-     (b) 局部优化: 替换/添加/移除单个菜品 (100次迭代)
-     (c) 最终选择: 各价位得分最高的组合
-  4. 评估维度:
-     - 营养评分: 碳水/脂肪/蛋白质供能比均衡度
-     - 消费偏好: 基于历史销量的 popularity_score
-     - 利润评分: 套餐利润率 (目标 40%)
-     - 关联评分: 基于共现矩阵的搭配契合度
-
-核心数据结构:
-  dish_db: 菜品数据库 DataFrame
-    列: name, category, price, cost, profit, profit_margin,
-         calories, protein, fat, carbs, fiber, total_orders, popularity_score
-
-参考文献:
-  [5]  Agrawal R. et al. "Fast Algorithms for Mining Association Rules"
-       VLDB 1994. https://www.vldb.org/conf/1994/P487.PDF
-  [6]  余滔滔等. "基于Apriori算法的菜品配置规则研究"
-       服务科学和管理, 2019.
-  [7]  黄健等. "中国海洋大学食堂菜谱的优化模型研究"
-       应用数学进展, 2018.
-  [8]  Padovan M. et al. "Optimized menu formulation to enhance nutritional
-       goals" BMC Nutrition, 2023.
-"""
 
 import pandas as pd
 import numpy as np
@@ -64,29 +20,8 @@ random.seed(RANDOM_SEED)
 
 
 class Problem4Combos:
-    """
-    问题4: 套餐优化设计
-
-    使用贪心搜索 + 局部优化策略，从菜品数据库中
-    为每个价位筛选出最优套餐组合。
-
-    算法流程:
-    1. 构建菜品数据库 (_build_dish_database)
-    2. 提取菜品共现关系 (_extract_associations)
-    3. 对每个价位:
-       a. 贪心搜索生成候选套餐 (_greedy_search)
-       b. 局部优化改进 (_local_optimization)
-       c. 选择最优方案
-    4. 可视化比较 (_plot_combo_results)
-    """
 
     def __init__(self, loader=None):
-        """
-        初始化套餐设计模块
-
-        Args:
-            loader: DataLoader 实例或 None
-        """
         print('\n' + '=' * 60)
         print('问题4: 不同价位套餐优化设计')
         print('=' * 60)
@@ -114,19 +49,6 @@ class Problem4Combos:
         self.results = {}
 
     def _build_dish_database(self):
-        """
-        构建菜品数据库 (dish_db)
-
-        从 dish_info 中提取每种菜品的核心属性:
-        - 基本信息: name, category, price, cost
-        - 营养信息: calories, protein, fat, carbs, fiber
-        - 商业指标: total_orders, profit_margin
-        - 偏好评分: popularity_score (归一化到 [0, 1])
-
-        过滤规则:
-        - 排除价格 ≤ 0.1 元的异常菜品
-        - 排除价格 ≥ 15 元的高价菜品 (非套餐目标)
-        """
         dishes = []
 
         for _, row in self.dish_info.iterrows():
@@ -166,22 +88,6 @@ class Problem4Combos:
         print(f'  菜品数据库: {len(self.dish_db)} 种可用菜品')
 
     def _extract_associations(self):
-        """
-        从购物篮数据中提取菜品共现关系
-
-        方法: 采样计算每对菜品的共现频次
-        - 采样 3000 个订单 (加速, 全量 11828 个)
-        - 对每对菜品 (i, j), 计算 order 中同时出现的次数
-        - 保留共现次数 > 3 的配对
-        - 共现值归一化为共现概率
-
-        共现关系用于套餐设计中的搭配评分:
-        - 经常被一起购买的菜品在同一套餐中得分更高
-        - 例如 {米饭, 红烧肉} 的共现次数高 → 搭配合理
-
-        Returns:
-            dict: {(dish1, dish2): co_occurrence_prob, ...}
-        """
         basket = self.basket
         dishes = basket.columns.tolist()
 
@@ -209,21 +115,6 @@ class Problem4Combos:
         return pairs
 
     def _score_combo(self, combo_dishes, target_price):
-        """
-        套餐综合评分函数
-        
-        评分维度 (6 项):
-        1. 消费者偏好评分 (w=0.30)
-        2. 营养均衡评分 (w=0.30)
-        3. 利润评分 (w=0.25)
-        4. 共购关联评分 (w=0.15)
-        5. 价格符合度 (w=0.15)
-        6. 类别多样性奖励 (+0.10)
-        
-        Iteration 5 新增:
-        7. Bootstrap稳定规则奖励: 若套餐包含Bootstrap生存率>80%的关联配对, 额外+0.05
-           依据: Bootstrap验证的稳定关联比原始Apriori规则更可靠
-        """
         if len(combo_dishes) == 0:
             return 0.0
 
@@ -280,7 +171,6 @@ class Problem4Combos:
         categories = set(d['category'] for d in combo_dishes)
         diversity_bonus = min(1.0, len(categories) / 3) * 0.10
 
-        # ---- Iteration 5: Bootstrap稳定规则奖励 ----
         # 验证报告表明: 生存率>80%的规则均涉及酱鸭腿作为后件
         # 若套餐包含此类稳定配对，给予额外奖励
         stable_bonus = 0.0
@@ -293,7 +183,6 @@ class Problem4Combos:
                         if pair in self.stable_pairs or pair_rev in self.stable_pairs:
                             stable_bonus = max(stable_bonus, 0.05)
 
-        # ---- 综合得分 ----
         score = (
             w['popularity'] * popularity +
             w['nutrition'] * nutrition_score +
@@ -314,32 +203,6 @@ class Problem4Combos:
         return score
 
     def _greedy_search(self, target_price, max_dishes=None):
-        """
-        贪心搜索最优套餐组合
-
-        算法:
-        1. 根据价位选择套餐结构模板
-           - 10元: 主食×1 + 荤菜×1 + 素菜×1
-           - 15元: 主食×1 + 荤菜×1 + 半荤半素×1 + 素菜×2
-           - 20元: 主食×1 + 荤菜×2 + 半荤半素×1 + 素菜×2 + 其他×1
-        2. 对 200 次迭代:
-           - 按结构逐类选择菜品
-           - 每类内按 (popularity_score × 0.7 + random × 0.3) 排序
-           - 引入随机性以增加候选多样性
-        3. 从 200 个候选中选择 _score_combo() 最高的方案
-
-        随机性控制:
-        - 每次迭代使用 30% 的随机权重 (确定性 70%)
-        - 固定 RANDOM_SEED 保证可复现
-
-        Args:
-            target_price: 目标价位 (10/15/20)
-            max_dishes: 最大菜品数 (None → 自动设置)
-
-        Returns:
-            dict: {'combo': list, 'total_price': float, 'score': float,
-                   'n_dishes': int}
-        """
         if max_dishes is None:
             max_dishes = COMBO_MAX_DISHES
 
@@ -407,7 +270,6 @@ class Problem4Combos:
                         selected_count += 1
 
             if len(combo) >= 2:
-                # ---- 去重检查: 防止同一菜品被多次选中 ----
                 names = [d['name'] for d in combo]
                 if len(names) != len(set(names)):
                     continue  # 有重复，跳过此候选
@@ -429,24 +291,6 @@ class Problem4Combos:
         return candidates[0]
 
     def _local_optimization(self, combo_data, target_price, iterations=100):
-        """
-        局部搜索优化
-
-        对贪心搜索结果进行微调，尝试三类操作:
-        1. replace: 随机替换一个菜品为同类别的另一个
-        2. add: 在预算允许范围内添加一个新菜品
-        3. remove: 删除一个菜品
-
-        仅当新方案得分高于当前最佳时才接受 (爬山法)。
-
-        Args:
-            combo_data: 贪心搜索结果 dict
-            target_price: 目标价位
-            iterations: 优化迭代次数
-
-        Returns:
-            dict: 优化后的方案
-        """
         best_combo = combo_data['combo'].copy()
         best_score = combo_data['score']
         best_price = combo_data['total_price']
@@ -531,18 +375,6 @@ class Problem4Combos:
         }
 
     def run(self):
-        """
-        运行套餐优化全流程
-
-        对 10/15/20 元三个价位分别:
-        1. 贪心搜索生成初始方案
-        2. 局部优化改进方案
-        3. 计算营养和利润指标
-        4. 可视化比较三个价位
-
-        Returns:
-            dict: 各价位套餐方案
-        """
         print('\n>>> 4.1 套餐设计策略')
 
         # 套餐定位描述
@@ -642,27 +474,16 @@ class Problem4Combos:
 
         self.results['combos'] = all_combos
 
-        # ---- 可视化 ----
         self._plot_combo_results(all_combos)
 
         print('\n问题4 套餐设计完成!')
         return self.results
 
     def _plot_combo_results(self, all_combos):
-        """
-        可视化套餐结果 — 输出 p4_combo_results.png
-
-        子图布局 (1 × 2):
-        1. 各价位套餐指标对比柱状图:
-           - 总价格, 利润率, 营养均衡度, 综合得分
-        2. 营养成分雷达图:
-           - 三价位归一化对比
-        """
         fig, axes = plt.subplots(1, 2, figsize=(16, 6))
 
         prices = sorted(all_combos.keys())
 
-        # ---- 子图1: 各价位套餐指标对比 ----
         ax1 = axes[0]
 
         metrics = {
@@ -698,7 +519,6 @@ class Problem4Combos:
         ax1.legend(loc='upper left', fontsize=8)
         ax1.grid(axis='y', alpha=0.3)
 
-        # ---- 子图2: 营养成分雷达图 ----
         ax2 = fig.add_subplot(1, 2, 2, projection='polar')
 
         nutri_keys = ['calories', 'protein', 'fat', 'carbs', 'fiber']

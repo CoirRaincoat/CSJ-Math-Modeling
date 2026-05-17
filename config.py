@@ -1,36 +1,5 @@
-"""
-config.py — 全局配置文件
-======================
-定义项目路径、常量、菜品分类规则、营养参考标准、可视化参数等全局参数。
-所有模块共享此配置，确保数据一致性和可维护性。
+"""config.py — 全局配置文件"""
 
-参考文献：
-  [1] 中国居民膳食营养素参考摄入量(DRIs), 中国营养学会, 2023版
-      http://www.cnsoc.org/
-  [2] 中国居民膳食指南(2022), 中国营养学会
-      http://dg.cnsoc.org/
-
-项目结构：
-  config.py                — 本文件：全局配置
-  data_loader.py           — 数据加载与预处理
-  utils.py                 — 通用工具函数 (MAPE、特征工程、营养计算)
-  problem1_analysis.py     — 问题1：数据统计分析与关联规则
-  problem2_prediction.py   — 问题2：需求预测
-  problem3_optimization.py — 问题3：备菜优化 (仅午餐)
-  problem4_combos.py       — 问题4：套餐设计
-  problem5_strategy.py     — 问题5：经营策略建议
-  main.py                  — 主入口，串联全部模块
-
-配色方案说明：
-  采用 Nature 期刊推荐的科学配色方案 (Nature Publishing Group / NPG palette)，
-  具有色盲友好、高对比度、适合学术论文出版的特点。
-  参考来源: ggsci R package "npg" palette
-    https://cran.r-project.org/web/packages/ggsci/
-  Nature 期刊常见配色原则：
-  - 使用高对比度、可区分的颜色
-  - 避免红绿搭配 (色盲不友好)
-  - 优先使用蓝色-橙色/红色-青色等安全组合
-"""
 
 import os
 
@@ -40,18 +9,6 @@ OUTPUT_DIR = os.path.join(BASE_DIR, 'output')
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 def _find_attachments():
-    """
-    根据文件大小特征自动识别附件1和附件2
-
-    附件1餐厅流水表 (~12.8MB) > 附件2菜品信息表 (~5.5MB) > 附件3数据说明 (~12KB)
-    按文件大小降序排序，取前两个即为附件1和附件2。
-
-    Returns:
-        tuple: (附件1路径, 附件2路径)
-
-    Raises:
-        FileNotFoundError: 当目录下 xlsx 文件不足 2 个时
-    """
     xlsx_files = []
     for f in os.listdir(DATA_DIR):
         if f.endswith('.xlsx'):
@@ -195,6 +152,13 @@ plt.rcParams['axes.unicode_minus'] = False    # 解决负号显示异常
 plt.rcParams['figure.dpi'] = 150               # 显示分辨率
 plt.rcParams['savefig.dpi'] = 300              # 保存分辨率 (满足 Nature 300dpi 要求)
 plt.rcParams['savefig.bbox'] = 'tight'         # 自动裁剪边缘空白
+# 全局加大字号 - 确保图表中的标签、图例足够大且醒目
+plt.rcParams['font.size'] = 12
+plt.rcParams['axes.titlesize'] = 14
+plt.rcParams['axes.labelsize'] = 13
+plt.rcParams['xtick.labelsize'] = 10
+plt.rcParams['ytick.labelsize'] = 10
+plt.rcParams['legend.fontsize'] = 10
 
 # Nature 期刊配色方案 (NPG Palette)
 COLORS = {

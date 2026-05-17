@@ -1,54 +1,5 @@
-"""
-problem2_prediction.py — 问题2: 就餐人数、营养需求与销售总额预测
-============================================================
-题目要求:
-  根据餐厅销售记录，对该餐厅每天就餐人数、各类营养素需求量以及销售总额
-  进行预测研究，并讨论预测模型的合理性和结果的可靠性。
-  请给出2025年5月份工作日的就餐人数、各类营养素需求量以及销售总额预测结果。
+"""problem2_prediction.py — 问题2: 就餐人数、营养需求与销售总额预测"""
 
-解题思路:
-  1. 数据准备: 按日汇总交易数据，构建连续时间序列
-     - 补全缺失日期 (停业日填充 0)
-     - 标记 is_closed 指示变量
-  2. 特征工程 (3 类特征):
-     (a) 时间特征: 星期几 (dow_0..dow_6), 是否周末, 月份, 日期, 周次
-     (b) 滞后特征: lag_1, lag_2, lag_3, lag_7, lag_14
-     (c) 滑动窗口统计: ma_3/7/14 (均值), std_3/7/14 (标准差)
-  3. 预测模型 (4 种, 进行模型比较):
-     - 基准模型 (Baseline): 历史同星期均值
-     - SARIMA(1,1,1)(1,1,1,7): 季节性差分整合移动平均自回归
-     - XGBoost: 梯度提升树集成学习
-     - Ensemble (组合预测): 按 1/MAPE 加权融合
-  4. 预测目标变量 (6 个):
-     - total_orders: 每日就餐人数
-     - total_sales: 每日销售总额
-     - total_calories/protein/fat/carbohydrates: 每日营养素总量
-  5. 模型评估: MAE, RMSE, MAPE
-  6. 外推预测: 基于历史同星期×同月份均值外推 2025年5月
-
-模型评估指标:
-  - MAE (Mean Absolute Error): 预测误差的绝对平均值
-  - RMSE (Root Mean Square Error): 对大误差更敏感
-  - MAPE (Mean Absolute Percentage Error): 相对误差百分比
-
-参考文献:
-  [1]  Rodrigues M. et al. "Machine learning models for short-term demand
-       forecasting in food catering services: A solution to reduce food waste."
-       Journal of Cleaner Production, 2024.
-       https://www.sciencedirect.com/science/article/pii/S0959652623044232
-  [2]  Posch K. et al. "A Bayesian Approach for Predicting Food and Beverage
-       Sales in Staff Canteens and Restaurants."
-       International Journal of Forecasting, 2022.
-       https://www.sciencedirect.com/science/article/pii/S0169207021001011
-  [3]  Thomassey S. et al. "Machine Learning Based Restaurant Sales
-       Forecasting." Machine Learning and Knowledge Extraction, 2022.
-       https://www.mdpi.com/2504-4990/4/1/6
-  [4]  Hyndman R.J., Athanasopoulos G. "Forecasting: Principles and Practice."
-       3rd Edition. OTexts.
-       https://otexts.com/fpp3/
-  [12] Chen T., Guestrin C. "XGBoost: A Scalable Tree Boosting System."
-       KDD 2016. https://arxiv.org/abs/1603.02754
-"""
 
 import pandas as pd
 import numpy as np
@@ -72,23 +23,6 @@ from utils import (mape_score, smape_score, create_lag_features,
 
 
 class Problem2Prediction:
-    """
-    问题2: 多模型需求预测
-
-    预测 6 个目标变量:
-    - total_orders: 每日就餐人数
-    - total_sales: 每日销售总额 (元)
-    - total_calories: 每日热量需求 (kcal)
-    - total_protein: 每日蛋白质需求 (g)
-    - total_fat: 每日脂肪需求 (g)
-    - total_carbohydrates: 每日碳水需求 (g)
-
-    使用 4 种模型进行对比:
-    1. Baseline (历史同星期均值)
-    2. SARIMA(1,1,1)(1,1,1,7)
-    3. XGBoost (梯度提升树)
-    4. Ensemble (加权组合)
-    """
 
     # 目标变量列表及中文标签
     TARGET_COLS = ['total_orders', 'total_sales', 'total_calories',
@@ -103,12 +37,6 @@ class Problem2Prediction:
     }
 
     def __init__(self, loader=None):
-        """
-        初始化预测模型
-
-        Args:
-            loader: DataLoader 实例或 None
-        """
         print('\n' + '=' * 60)
         print('问题2: 需求预测模型')
         print('=' * 60)
@@ -148,15 +76,6 @@ class Problem2Prediction:
         self.results = {}
 
     def run(self):
-        """
-        运行完整预测流程
-
-        步骤:
-        1. 时间序列特征分析 (ADF, ACF/PACF)
-        2. 构建并评估多模型
-        3. 模型比较可视化
-        4. 预测 2025年5月工作日
-        """
         print('\n>>> 2.1 时间序列特征分析')
         self._time_series_analysis()
 
@@ -179,21 +98,8 @@ class Problem2Prediction:
         return self.results
 
     def _time_series_analysis(self):
-        """
-        时间序列特征分析 — 输出 p2_time_series_overview.png 和 p2_acf_pacf.png
-
-        分析方法:
-        1. ADF (Augmented Dickey-Fuller) 平稳性检验
-           H0: 序列存在单位根 (非平稳)
-           若 p < 0.05 → 拒绝 H0 → 序列平稳
-        2. ACF (Autocorrelation Function) 自相关图
-           反映时间序列在不同滞后期的自相关系数
-        3. PACF (Partial Autocorrelation Function) 偏自相关图
-           反映排除中间滞后影响后的直接自相关
-        """
         df = self.df_daily[self.df_daily['is_closed'] == 0].copy()
 
-        # ==== 图1: 6个目标变量的时间序列总览 ====
         fig, axes = plt.subplots(3, 2, figsize=(16, 12))
 
         for i, (col, name) in enumerate(self.TARGET_NAMES.items()):
@@ -223,7 +129,6 @@ class Problem2Prediction:
         plt.close()
         print('  已保存: p2_time_series_overview.png')
 
-        # ==== 图2: ACF / PACF 分析 (以 total_orders 为例) ====
         fig, axes = plt.subplots(1, 2, figsize=(14, 5))
         plot_acf(df['total_orders'].dropna(), lags=30, ax=axes[0])
         axes[0].set_title('ACF - Daily Orders', fontweight='bold')
@@ -235,34 +140,8 @@ class Problem2Prediction:
         print('  已保存: p2_acf_pacf.png')
 
     def _build_features(self, df, target_col):
-        """
-        构建预测特征矩阵
-
-        特征类别 (共约 30+ 个特征):
-        1. 时间特征 (10个):
-           - day_of_week (0-6), is_weekend (0/1)
-           - month (1-12), day (1-31), week_of_year (1-53)
-           - dow_0 到 dow_6: 星期几的 one-hot 编码 (7个)
-
-        2. 滞后特征 (5个):
-           - lag_1, lag_2, lag_3, lag_7, lag_14
-           - 原理: y_t 可能依赖 y_{t-1}, y_{t-7} 等历史观测值
-           - lag_7 特别重要: 捕捉星期周期性
-
-        3. 滑动窗口统计 (6个):
-           - ma_3, ma_7, ma_14: 移动平均 (反映短期/中期趋势)
-           - std_3, std_7, std_14: 移动标准差 (反映波动性)
-
-        Args:
-            df: 原始日级 DataFrame (需设置日期索引)
-            target_col: 目标变量列名
-
-        Returns:
-            DataFrame: 包含所有特征的 DataFrame
-        """
         data = df.copy()
 
-        # ---- 时间特征 ----
         data['day_of_week'] = data.index.dayofweek
         data['is_weekend'] = data['day_of_week'].isin([5, 6]).astype(int)
         data['month'] = data.index.month
@@ -273,44 +152,15 @@ class Problem2Prediction:
         for d in range(7):
             data[f'dow_{d}'] = (data['day_of_week'] == d).astype(int)
 
-        # ---- 滞后特征 ----
         data = create_lag_features(
             data, target_col, lags=[1, 2, 3, 7, 14]
         )
 
-        # ---- 滑动窗口统计 ----
         data = create_rolling_features(data, target_col, windows=[3, 7, 14])
 
         return data
 
     def _build_and_evaluate_models(self):
-        """
-        构建并比较 4 种预测模型
-
-        模型列表:
-        1. Baseline: 历史同星期均值
-           - 方法: 对每个预测日期，取历史上所有相同星期几的观测均值
-           - 优点: 简单直观，捕捉星期周期性
-           - 缺点: 忽略趋势和季节性变化
-
-        2. SARIMA(1,1,1)(1,1,1,7):
-           - 非季节性阶数 (p,d,q) = (1,1,1): 处理趋势
-           - 季节性阶数 (P,D,Q,s) = (1,1,1,7): 以7天为周期
-           - 优点: 理论基础扎实，同时处理趋势和季节性
-           - 缺点: 可能收敛失败，对大样本慢
-
-        3. XGBoost:
-           - 参数: n_estimators=100, max_depth=4, lr=0.1
-           - 特征: 时间 + 滞后 + 滑动窗口 (~30个)
-           - 使用 TimeSeriesSplit (3-fold) 进行交叉验证
-           - 优点: 可捕捉复杂的非线性关系
-           - 缺点: 需要足够的特征工程
-
-        4. Ensemble (组合预测):
-           - 方法: 按 1/MAPE 加权融合前3种模型
-           - weight_model = (1/MAPE_model) / Σ(1/MAPE)
-           - 优点: 降低单一模型风险，通常优于任一单模型
-        """
         # 排除停业日 (is_closed=1) 进行建模
         df = self.df_daily[self.df_daily['is_closed'] == 0].copy()
 
@@ -379,28 +229,6 @@ class Problem2Prediction:
         return all_predictions
 
     def _baseline_forecast(self, df, target_col):
-        """
-        基准模型: 历史同星期均值预测
-
-        算法:
-        For each date d:
-          1. 确定 d 是星期几
-          2. 找到历史上所有相同星期几且早于 d 的日期
-          3. 计算这些日期的目标变量均值作为预测值
-          4. 若历史上无相同星期数据 (冷启动), 用全局均值
-
-        特点:
-        - 无训练过程，直接计算
-        - 捕捉稳定的星期周期性模式
-        - 无法捕捉趋势变化和新模式
-
-        Args:
-            df: 营业日 DataFrame
-            target_col: 目标列名
-
-        Returns:
-            pd.Series: 与 df.index 对齐的预测值
-        """
         preds = pd.Series(index=df.index, dtype=float)
         dow_values = df.index.dayofweek
 
@@ -416,28 +244,6 @@ class Problem2Prediction:
         return preds
 
     def _sarima_forecast(self, df, target_col):
-        """
-        SARIMA 模型预测
-
-        模型规格: SARIMA(1,1,1)(1,1,1,7)
-        - 非季节性 AR(1): y_t 依赖 y_{t-1} (自回归)
-        - 非季节性 I(1): 1阶差分 (去除趋势)
-        - 非季节性 MA(1): 误差项依赖上一时刻误差 (移动平均)
-        - 季节性 P=1, D=1, Q=1, s=7: 以7天为周期
-
-        这等价于:
-          (1 - φ₁B)(1 - Φ₁B⁷)(1 - B)(1 - B⁷)y_t
-        = (1 + θ₁B)(1 + Θ₁B⁷)ε_t
-
-        其中 B 是滞后算子: B^k y_t = y_{t-k}
-
-        Args:
-            df: 营业日 DataFrame
-            target_col: 目标列名
-
-        Returns:
-            pd.Series: 拟合值序列
-        """
         series = df[target_col].dropna().values
 
         try:
@@ -466,33 +272,6 @@ class Problem2Prediction:
             return pd.Series(np.nan, index=df.index)
 
     def _xgboost_forecast(self, df, target_col):
-        """
-        XGBoost 梯度提升树预测
-
-        特征 (~30个):
-        - 时间特征: day_of_week, is_weekend, month, day, week_of_year
-          + dow_0 至 dow_6 (one-hot)
-        - 滞后特征: lag_1, lag_2, lag_3, lag_7, lag_14
-        - 滑动窗口特征: ma_3/7/14, std_3/7/14
-
-        训练策略:
-        - 使用 TimeSeriesSplit (3折) 进行交叉验证
-        - 保持时间顺序，避免未来信息泄露
-        - 每折训练独立模型，对对应测试集预测
-
-        超参数:
-        - n_estimators=100: 100棵树
-        - max_depth=4: 限制树深度防止过拟合
-        - learning_rate=0.1: 学习率
-        - subsample=0.8, colsample_bytree=0.8: 行/列采样
-
-        Args:
-            df: 营业日 DataFrame
-            target_col: 目标列名
-
-        Returns:
-            tuple: (pd.Series 预测值, dict 特征重要性 Top10)
-        """
         # 构建特征
         data = self._build_features(df, target_col)
 
@@ -550,24 +329,6 @@ class Problem2Prediction:
         return preds, importance
 
     def _ensemble_forecast(self, df, target_col, baseline, sarima, xgb):
-        """
-        组合预测: 基于 MAPE 的加权平均
-
-        权重计算:
-        weight_model = (1/MAPE_model) / Σ(1/MAPE)
-        即 MAPE 越小的模型权重越大。
-
-        对于无法计算 MAPE 的模型 (如 SARIMA 失败), 权重 = 0。
-        若所有模型均失败，则回退到全局均值。
-
-        Args:
-            df: 营业日 DataFrame
-            target_col: 目标列名
-            baseline, sarima, xgb: 三个模型的预测序列
-
-        Returns:
-            pd.Series: 组合预测值
-        """
         actual = df[target_col].values
         weights = {}
 
@@ -599,12 +360,6 @@ class Problem2Prediction:
         return ensemble
 
     def _model_comparison(self):
-        """
-        模型比较可视化 — 输出 p2_model_comparison.png
-
-        展示 4 种模型在 6 个目标变量上的 MAPE 对比。
-        柱状图使用 Nature NPG 配色。
-        """
         metrics = self.results.get('metrics', {})
         if not metrics:
             return
@@ -647,15 +402,6 @@ class Problem2Prediction:
         print('  已保存: p2_model_comparison.png')
 
     def _residual_diagnostics(self):
-        """
-        残差诊断与分组误差分析 — 输出 p2_residual_diagnostics.png
-        
-        诊断项目:
-        1. Ljung-Box 白噪声检验 — 验证残差是否为白噪声
-        2. 残差分布直方图 — 检查正态性
-        3. 按星期分组的 MAPE — 识别预测薄弱的星期
-        4. 残差 ACF — 检查残差自相关
-        """
         df = self.df_daily[self.df_daily['is_closed'] == 0]
 
         # Use baseline predictions for demonstration
@@ -728,19 +474,6 @@ class Problem2Prediction:
         print('  已保存: p2_residual_diagnostics.png')
 
     def _walk_forward_validation(self):
-        """
-        Walk-forward 验证 — 输出 p2_walk_forward.png
-        
-        使用 expanding window 方法对 XGBoost 进行滚动预测:
-        1. 初始训练窗口: 前 80% 数据
-        2. 每次预测 7 天 (1 周)
-        3. 将预测的 7 天加入训练集，窗口扩增
-        4. 重复直到覆盖全部测试数据
-        
-        与 TimeSeriesSplit 的区别:
-        - TimeSeriesSplit: 固定窗口，不扩增训练集
-        - Walk-forward: expanding window，更贴近真实部署场景
-        """
         df = self.df_daily[self.df_daily['is_closed'] == 0].copy()
         target_col = 'total_orders'  # Focus on primary target
 
@@ -828,25 +561,6 @@ class Problem2Prediction:
         }
 
     def _predict_may_2025(self):
-        """
-        预测 2025 年 5 月工作日 — 输出 p2_may2025_predictions.png 和 CSV
-
-        改进策略 (v1):
-        1. 使用 chinese_calendar 排除中国法定假日 (五一劳动节 5月1-5日)
-        2. 使用 SARIMA.get_forecast() 进行真正的样本外预测 + 95%置信区间
-        3. SARIMA 失败时回退到 Ensemble 加权组合
-        4. 预测值带有周间自然波动 (不再严格重复)
-
-        参考文献:
-          Hyndman R.J. "Forecasting: Principles and Practice" 第3版, 第11章
-          Statsmodels SARIMAX: get_forecast() API
-          chinese_calendar: https://github.com/LKI/chinese-calendar
-
-        局限性说明:
-        - 预测基于截至2025-04-30的训练数据
-        - 五一假期(5/1-5)的预测值基于历史5月工作日的均值模式
-        - 未考虑2025年特有的运营变化
-        """
         from chinese_calendar import is_workday, is_holiday
 
         print('\n  预测2025年5月 (工作日, 排除法定假日)...')
@@ -884,7 +598,6 @@ class Problem2Prediction:
         for d in range(7):
             pred_df[f'dow_{d}'] = (pred_df['day_of_week'] == d).astype(int)
 
-        # ---- 使用 SARIMA 进行真正的样本外预测 ----
         for target_col in self.TARGET_COLS:
             series = df[target_col].dropna().values
 
@@ -918,7 +631,6 @@ class Problem2Prediction:
                       f'falling back to ensemble')
                 sarima_forecast = None
 
-            # ---- 回退: Ensemble (Baseline + XGBoost) ----
             if sarima_forecast is None:
                 # Use same-month same-weekday historical mean (Baseline)
                 for i, date in enumerate(may_workdays):
@@ -972,7 +684,6 @@ class Problem2Prediction:
 
         self.results['may_2025_predictions'] = pred_df
 
-        # ==== Visualization: enhanced with CI ribbons ====
         has_ci = any(f'{c}_lower' in pred_df.columns for c in self.TARGET_COLS)
 
         fig, axes = plt.subplots(2, 3, figsize=(18, 10))

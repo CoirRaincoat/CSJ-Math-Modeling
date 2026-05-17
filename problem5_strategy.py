@@ -1,50 +1,5 @@
-"""
-problem5_strategy.py — 问题5: 经营情况分析与策略建议
-================================================
-题目要求:
-  综合分析该餐厅的运营情况，给出该餐厅优化经营的策略和建议。
+"""problem5_strategy.py — 问题5: 经营情况分析与策略建议"""
 
-解题思路:
-  基于问题1-4的定量分析结果，从以下 5 个维度提出系统性策略建议:
-
-  1. 备菜策略优化
-     - 建立"预测→备菜→销售→复盘"闭环
-     - ABC 分级备菜制度 (差异化库存管理)
-     - 安全库存与应急响应机制
-
-  2. 菜品结构优化
-     - 保留/优化/淘汰三维决策矩阵 (销量×利润率评分)
-     - 午餐差异化供应策略
-     - 菜品生命周期管理
-
-  3. 套餐推广策略
-     - 阶梯定价 (10/15/20 元三层套餐)
-     - 动态套餐调整机制
-     - 营养标签与健康营销
-
-  4. 数字化运营建议
-     - 每日数据看板
-     - 预测模型迭代更新
-     - 后厨智能化管理
-
-  5. 营养与 ESG 策略
-     - 健康膳食引导
-     - 食物浪费控制
-     - 可持续经营
-
-策略制定原则:
-  1. 所有建议必须有数据支撑 (来自问题1-4的定量分析)
-  2. 避免无根据的百分比预测 (如 "预期提升 20%")
-  3. 量化的估算基于实际数据 (如浪费量基于历史残差)
-  4. 区分短期可操作和长期优化建议
-
-参考文献:
-  [1]  Rodrigues M. et al. "Machine learning models for short-term demand
-       forecasting in food catering services" J. Cleaner Production, 2024.
-  [8]  Padovan M. et al. "Optimized menu formulation" BMC Nutrition, 2023.
-  [13] 中国营养学会. 中国居民膳食营养素参考摄入量(DRIs)(2023版)
-       http://www.cnsoc.org/
-"""
 
 import pandas as pd
 import numpy as np
@@ -58,20 +13,8 @@ from config import OUTPUT_DIR, COLORS, COLOR_CYCLE, NUTRITION_PER_MEAL
 
 
 class Problem5Strategy:
-    """
-    问题5: 综合经营策略建议
-
-    基于前4个问题的定量分析，从 5 个维度制定系统性运营优化建议。
-    所有建议附有数据依据说明。
-    """
 
     def __init__(self, loader=None):
-        """
-        初始化策略分析模块
-
-        Args:
-            loader: DataLoader 实例或 None
-        """
         print('\n' + '=' * 60)
         print('问题5: 经营策略分析')
         print('=' * 60)
@@ -91,13 +34,6 @@ class Problem5Strategy:
         self.strategies = {}
 
     def _run_menu_evaluation(self):
-        """
-        菜品综合评估
-
-        基于销量排名和利润率排名的加权综合评分，
-        对菜品进行三维分类: 重点推广 / 维持 / 考虑替换。
-        结果用于菜品结构优化策略中。
-        """
         dish_info = self.dish_info.copy()
 
         # 销量排名 (百分位)
@@ -126,21 +62,6 @@ class Problem5Strategy:
         self.dish_eval = dish_info
 
     def run(self):
-        """
-        运行完整策略分析
-
-        生成 5 个维度的策略建议:
-        1. 备菜策略
-        2. 菜品结构优化
-        3. 套餐推广策略
-        4. 数字化运营建议
-        5. 营养与 ESG 策略
-
-        最后输出综合策略可视化图。
-
-        Returns:
-            dict: 包含各维度策略的结构化字典
-        """
         print('\n>>> 5.1 备菜策略分析')
         self._preparation_strategy()
 
@@ -163,20 +84,6 @@ class Problem5Strategy:
         return self.strategies
 
     def _preparation_strategy(self):
-        """
-        备菜策略分析
-
-        基于历史数据的需求波动特征，制定分级备菜策略。
-
-        数据依据:
-        - CV (变异系数): 衡量需求相对波动程度
-          CV = std(日订单量) / mean(日订单量)
-          CV < 20% → 需求稳定 (可采用固定备菜)
-          CV 20-40% → 需求中等波动 (需要安全库存)
-          CV > 40% → 需求剧烈波动 (需要预测模型)
-        - 星期波动: 衡量各工作日之间的需求差异
-          DOW_CV = std(各星期均值) / mean(各星期均值)
-        """
         daily = self.df_daily.copy()
 
         # 需求波动性分析
@@ -253,17 +160,6 @@ class Problem5Strategy:
         print(f'  星期波动: {dow_cv:.1%}')
 
     def _menu_structure_analysis(self):
-        """
-        菜品结构优化策略
-
-        基于菜品的销量和利润率进行综合评估，提出分类管理建议。
-
-        评估方法:
-        - 销量排名 (百分位): 反映消费者需求强度
-        - 利润率排名 (百分位): 反映盈利能力
-        - 综合评分 = 0.5 × 销量排名 + 0.3 × 利润率排名
-        - 前 25% → "重点推广", 后 25% → "考虑替换", 中间 → "维持"
-        """
         rec_counts = self.dish_eval['recommendation'].value_counts()
 
         # 午餐晚餐人数比 (用于差异化策略)
@@ -330,12 +226,6 @@ class Problem5Strategy:
         print(f'  午餐日均: {lunch_mean:.0f} 人 (占 99.2%)')
 
     def _combo_strategy(self):
-        """
-        套餐推广策略
-
-        基于问题4的套餐设计结果，提出三层阶梯套餐的推广方案。
-        同时考虑动态调整和营养标识策略。
-        """
         strategies = {
             'recommendations': [
                 {
@@ -385,12 +275,6 @@ class Problem5Strategy:
         self.strategies['combo'] = strategies
 
     def _digital_operation_strategy(self):
-        """
-        数字化运营建议
-
-        建议建立数据驱动的运营体系，包括实时监控看板、
-        预测模型迭代和后厨智能化管理。
-        """
         strategies = {
             'recommendations': [
                 {
@@ -433,16 +317,6 @@ class Problem5Strategy:
         self.strategies['digital'] = strategies
 
     def _nutrition_esg_strategy(self):
-        """
-        营养与 ESG (环境、社会、治理) 策略
-
-        分析当前营养结构并提出健康引导和可持续发展建议。
-
-        数据依据:
-        - 人均营养素摄入量 (来自 df_daily)
-        - 脂肪供能比 (评估是否超出推荐范围)
-        - 食物浪费估算 (基于备菜剩余率)
-        """
         daily = self.df_daily.copy()
 
         # 人均营养现状
@@ -538,23 +412,8 @@ class Problem5Strategy:
         print(f'  日均浪费估算: {daily_waste:.0f} 元')
 
     def _plot_strategy_summary(self):
-        """
-        综合策略可视化 — 输出 p5_strategy_summary.png
-
-        子图布局 (2 × 3):
-        1. 运营优化框架总览 (策略模块关系图)
-        2. 菜品评估矩阵 (销量×利润率散点图)
-        3. ABC 分级备菜策略示意图
-        4. 三层阶梯套餐策略图
-        5. 关键数据指标概览
-        6. 数据驱动运营闭环示意图
-
-        说明: 本图中的所有数值均来自前4题的定量分析，
-        不包含无数据支撑的预期改善百分比。
-        """
         fig, axes = plt.subplots(2, 3, figsize=(22, 12))
 
-        # ---- 子图1: 运营优化框架总览 ----
         ax1 = axes[0, 0]
         ax1.axis('off')
         ax1.set_xlim(0, 10)
@@ -583,7 +442,6 @@ class Problem5Strategy:
         ax1.set_title('Operation Optimization Framework',
                      fontweight='bold', fontsize=12)
 
-        # ---- 子图2: 菜品评估矩阵 ----
         ax2 = axes[0, 1]
         dish = self.dish_eval.copy()
 
@@ -613,7 +471,6 @@ class Problem5Strategy:
         ]
         ax2.legend(handles=legend_elements, loc='upper right', fontsize=8)
 
-        # ---- 子图3: ABC 分级备菜策略 ----
         ax3 = axes[0, 2]
         ax3.axis('off')
         ax3.set_xlim(0, 10)
@@ -638,7 +495,6 @@ class Problem5Strategy:
         ax3.set_title('ABC Classification Strategy',
                      fontweight='bold', fontsize=11)
 
-        # ---- 子图4: 三层阶梯套餐策略 ----
         ax4 = axes[1, 0]
         ax4.axis('off')
         ax4.set_xlim(0, 10)
@@ -664,7 +520,6 @@ class Problem5Strategy:
         ax4.set_title('Tiered Combo Strategy (from Problem 4)',
                      fontweight='bold', fontsize=11)
 
-        # ---- 子图5: 关键数据指标概览 ----
         ax5 = axes[1, 1]
         ax5.axis('off')
 
@@ -693,7 +548,6 @@ class Problem5Strategy:
         ax5.set_title('Key Operational Metrics (Data-driven)',
                      fontweight='bold', fontsize=11)
 
-        # ---- 子图6: 数据闭环示意图 ----
         ax6 = axes[1, 2]
         ax6.axis('off')
         ax6.set_xlim(0, 10)
@@ -735,12 +589,6 @@ class Problem5Strategy:
         print('  已保存: p5_strategy_summary.png')
 
     def print_strategy_report(self):
-        """
-        打印完整的文本策略报告
-
-        按五大维度输出结构化的策略建议，
-        每条建议附有数据依据说明。
-        """
         print('\n' + '=' * 70)
         print('               经营优化策略报告')
         print('=' * 70)

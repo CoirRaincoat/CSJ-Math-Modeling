@@ -1,40 +1,5 @@
-"""
-problem1_analysis.py — 问题1: 数据预处理、统计分析与关联规则挖掘
-============================================================
-题目要求:
-  对附件中自助量贩餐厅的历史交易数据进行预处理、统计和可视化分析，
-  分析不同菜品销售量的分布规律以及它们之间可能存在的关联关系。
+"""problem1_analysis.py — 问题1: 数据预处理、统计分析与关联规则挖掘"""
 
-解题思路:
-  1. 数据预处理摘要: 展示清洗后的数据基本情况
-  2. 描述性统计分析:
-     (a) 菜品销量排名 (Pareto / ABC 分析)
-     (b) 菜品类别销售占比 (饼图)
-     (c) 日销售额/订单量时间序列
-     (d) 星期消费规律 (箱线图 + t 检验)
-     (e) 午餐/晚餐对比 (消费金额分布、时段分布、营养摄入)
-     (f) 人均营养摄入分析 (相关矩阵、客单价分布)
-  3. 关联规则挖掘 (Apriori 算法):
-     (a) 频繁项集挖掘
-     (b) 关联规则生成 (support, confidence, lift)
-     (c) 规则可视化 (散点图 + 共现网络图)
-
-核心技术:
-  - Apriori 关联规则挖掘 (mlxtend 库)
-    指标定义:
-    - 支持度: Support(A→B) = P(A∩B) = count(A∩B)/N
-    - 置信度: Confidence(A→B) = P(B|A) = count(A∩B)/count(A)
-    - 提升度: Lift(A→B) = P(B|A)/P(B) = Confidence/P(B)
-      提升度 > 1 正相关, < 1 负相关, = 1 独立
-
-参考文献:
-  [5]  Agrawal R, Srikant R. "Fast Algorithms for Mining Association Rules"
-       Proceedings of the 20th VLDB Conference, 1994.
-       https://www.vldb.org/conf/1994/P487.PDF
-  [6]  余滔滔, 张革夫, 胡朝晖. "基于Apriori算法的菜品配置规则研究"
-       服务科学和管理, 2019, 8(4): 280-288.
-       https://www.hanspub.org/journal/PaperInformation?paperID=32795
-"""
 
 import pandas as pd
 import numpy as np
@@ -57,29 +22,8 @@ np.random.seed(RANDOM_SEED)
 
 
 class Problem1Analysis:
-    """
-    问题1 完整分析类
-
-    封装了从数据预处理摘要到关联规则挖掘的全流程，
-    输出 5 张专业级可视化图表:
-    - p1_sales_distribution.png  (4子图: Top20, Pareto, 类别占比, ABC)
-    - p1_temporal_patterns.png   (4子图: 日趋势, 星期模式, 月度, 工作日vs周末)
-    - p1_meal_comparison.png     (3子图: 消费分布, 时段分布, 营养对比)
-    - p1_nutrition_analysis.png  (4子图: 趋势, 热量来源, 相关矩阵, 客单价)
-    - p1_association_rules.png   (2子图: 散点图, 共现网络)
-
-    所有图表采用 Nature 期刊推荐配色方案 (NPG palette)。
-    """
 
     def __init__(self, loader=None):
-        """
-        初始化问题1分析对象
-
-        Args:
-            loader: DataLoader 实例或 None。
-                   若为 None，自动创建新的 DataLoader。
-                   传入已有对象可避免重复加载数据。
-        """
         print('\n' + '=' * 60)
         print('问题1: 数据预处理、统计与关联分析')
         print('=' * 60)
@@ -101,20 +45,6 @@ class Problem1Analysis:
         self.results = {}
 
     def run(self):
-        """
-        运行完整的问题1分析流程
-
-        执行顺序:
-        1. 数据预处理摘要 (_data_preprocessing_summary)
-        2. 销量分布分析 (_sales_distribution_analysis)
-        3. 时间模式分析 (_temporal_pattern_analysis)
-        4. 餐次差异分析 (_meal_period_analysis)
-        5. 营养摄入分析 (_nutrition_analysis)
-        6. 关联规则挖掘 (_association_rule_mining)
-
-        Returns:
-            dict: 分析结果字典，包含各步骤的关键统计量
-        """
         print('\n>>> 1.1 数据预处理摘要')
         self._data_preprocessing_summary()
 
@@ -138,18 +68,6 @@ class Problem1Analysis:
         return self.results
 
     def _data_preprocessing_summary(self):
-        """
-        数据预处理摘要
-
-        输出关键统计数据以验证数据加载和清洗的正确性。
-        这些数据也是后续建模的基础参数。
-
-        关键指标:
-        - 数据规模: 总订单数、总交易记录数
-        - 时间跨度: 起止日期、营业天数
-        - 经营指标: 日均订单、日均销售额、客单价
-        - 餐次结构: 午餐/晚餐占比
-        """
         df1 = self.loader.df1_raw
         df2 = self.loader.df2_raw
 
@@ -181,30 +99,10 @@ class Problem1Analysis:
             print(f'  {k}: {v}')
 
     def _sales_distribution_analysis(self):
-        """
-        菜品销售量分布分析 — 输出 p1_sales_distribution.png
-
-        分析方法:
-        1. 销量 Top 20 柱状图 (子图1): 识别最受欢迎的菜品
-        2. 销售额 Top 20 柱状图 (子图2): 识别销售额最高的菜品
-        3. Pareto / ABC 分析 (子图3):
-           - A 类: 前 80% 累计销量 (头部菜品，约占总菜品数的 25%)
-           - B 类: 80%-95% 累计销量 (中腰部菜品)
-           - C 类: 95%-100% 累计销量 (长尾菜品)
-        4. 菜品类别分布饼图 (子图4): 主营品类结构
-
-        数据可靠性说明:
-        - 销量数据来自附件2
-        - 销量排名反映的是有详细记录的订单中的偏好模式
-        - ABC 分析基于可统计菜品，完整订单可能有不同的分布
-        - 这一偏差应在论文中注明
-        """
         dish_info = self.dish_info.copy()
 
-        # ====== 图1: 菜品销量和销售额分布 ======
         fig, axes = plt.subplots(2, 2, figsize=(16, 12))
 
-        # ---- 子图1: 销量 Top20 水平柱状图 ----
         ax1 = axes[0, 0]
         top20_orders = dish_info.nlargest(20, 'total_orders')
 
@@ -223,7 +121,6 @@ class Problem1Analysis:
                       fontsize=11)
         ax1.invert_yaxis()
 
-        # ---- 子图2: 销售额 Top20 水平柱状图 ----
         ax2 = axes[0, 1]
         top20_rev = dish_info.nlargest(20, 'total_revenue')
         bars2 = ax2.barh(range(20), top20_rev['total_revenue'].values[::-1],
@@ -235,7 +132,6 @@ class Problem1Analysis:
                       fontsize=11)
         ax2.invert_yaxis()
 
-        # ---- 子图3: ABC 分类 (Pareto Chart) ----
         ax3 = axes[1, 0]
         dish_sorted = dish_info.sort_values('total_orders', ascending=False)
         dish_sorted['cumsum_pct'] = (
@@ -292,7 +188,6 @@ class Problem1Analysis:
                  bbox=dict(boxstyle='round', facecolor=COLORS['grey'],
                          alpha=0.15))
 
-        # ---- 子图4: 菜品类别占比饼图 ----
         ax4 = axes[1, 1]
         df2 = self.loader.df2_raw
         cat_order = df2.groupby('category')['indent_details_id'].count().sort_values(
@@ -325,34 +220,10 @@ class Problem1Analysis:
         }
 
     def _temporal_pattern_analysis(self):
-        """
-        时间维度销售规律分析 — 输出 p1_temporal_patterns.png
-
-        分析方法:
-        1. 日订单数与销售额趋势 (子图1):
-           - 叠加 7 日移动平均线平滑短期波动
-           - 双 Y 轴: 左轴订单数, 右轴销售额
-        2. 星期销售模式 (子图2):
-           - 箱线图展示周一至周日订单分布
-           - 工作日用蓝色, 周末用暖色区分
-        3. 月度销售趋势 (子图3):
-           - 柱状图: 月总订单量
-           - 折线图: 月日均订单量 (双 Y 轴)
-        4. 工作日 vs 周末对比 (子图4):
-           - 双样本 t 检验 (Welch's t-test)
-           - 检验周末与工作日订单量是否有显著差异
-
-        数据可靠性说明:
-        - t 检验假设两组数据独立且近似正态分布
-        - 订单数据可能不完全满足正态性假设，但根据中心极限定理，
-          大样本 (n>100) 下 t 检验对非正态性具有鲁棒性
-        """
         daily = self.df_daily.copy()
 
-        # ====== 图2: 日销售趋势 + 星期模式 ======
         fig, axes = plt.subplots(2, 2, figsize=(16, 10))
 
-        # ---- 子图1: 日订单数与销售额趋势 ----
         ax1 = axes[0, 0]
         ax1_2 = ax1.twinx()
 
@@ -382,7 +253,6 @@ class Problem1Analysis:
         ax1.legend(lines1 + lines2, labels1 + labels2, loc='upper left',
                   fontsize=8)
 
-        # ---- 子图2: 星期销售模式 (箱线图) ----
         ax2 = axes[0, 1]
         daily['weekday_name'] = daily['date'].dt.day_name()
         weekday_order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday',
@@ -402,7 +272,6 @@ class Problem1Analysis:
                       fontsize=11)
         ax2.grid(axis='y', alpha=0.3)
 
-        # ---- 子图3: 月度销售趋势 ----
         ax3 = axes[1, 0]
         monthly = daily.groupby(daily['date'].dt.to_period('M')).agg(
             total_orders=('total_orders', 'sum'),
@@ -424,7 +293,6 @@ class Problem1Analysis:
         ax3.set_title('Monthly Sales Trend', fontweight='bold', fontsize=11)
         ax3.grid(axis='y', alpha=0.3)
 
-        # ---- 子图4: 工作日 vs 周末对比 (t 检验) ----
         ax4 = axes[1, 1]
         weekday_data = daily[daily['is_weekend'] == 0]['total_orders']
         weekend_data = daily[daily['is_weekend'] == 1]['total_orders']
@@ -481,33 +349,12 @@ class Problem1Analysis:
         }
 
     def _meal_period_analysis(self):
-        """
-        午餐 vs 晚餐差异分析 — 输出 p1_meal_comparison.png
-
-        分析方法:
-        1. 消费金额分布对比 (子图1):
-           - 核密度估计 (KDE) 叠加直方图
-           - 标注中位数差异
-        2. 小时消费分布 (子图2):
-           - 7-18 时段内每小时的交易量
-           - 午餐/晚餐时段用不同颜色标示
-        3. 人均营养摄入对比 (子图3):
-           - 5 项营养素 (热量/蛋白/脂肪/碳水/纤维)
-           - 分组柱状图对比
-
-        数据可靠性说明:
-        - 晚餐仅占 0.8% 的订单量 (约 500 条记录)
-        - 晚餐的小样本导致统计估计的方差较大
-        - 图表中晚餐的数据应标注 "小样本 (n≈500, 仅供参考)"
-        """
         df1 = self.loader.df1_raw
         lunch = df1[df1['meal_period'] == 'lunch']
         dinner = df1[df1['meal_period'] == 'dinner']
 
-        # ====== 图3: 午餐/晚餐对比 ======
         fig, axes = plt.subplots(1, 3, figsize=(16, 5))
 
-        # ---- 子图1: 消费金额分布对比 ----
         ax1 = axes[0]
         # 截断异常高值 (超出 30 元的比例极小)
         lunch_vals = lunch['consume_money'].clip(upper=30)
@@ -545,7 +392,6 @@ class Problem1Analysis:
                  ha='right', va='bottom', style='italic',
                  color=COLORS['grey'])
 
-        # ---- 子图2: 小时消费分布 ----
         ax2 = axes[1]
         hourly = df1.groupby('hour').size()
         hours = range(7, 19)
@@ -576,7 +422,6 @@ class Problem1Analysis:
         ax2.legend(fontsize=7)
         ax2.set_xticks(hours)
 
-        # ---- 子图3: 人均营养摄入对比 ----
         ax3 = axes[2]
         metrics = ['calories', 'protein', 'fat', 'carbohydrates', 'fiber']
         lunch_means = [lunch[m].mean() for m in metrics]
@@ -604,28 +449,10 @@ class Problem1Analysis:
         print('  已保存: p1_meal_comparison.png')
 
     def _nutrition_analysis(self):
-        """
-        营养摄入分析 — 输出 p1_nutrition_analysis.png
-
-        分析方法:
-        1. 每日营养素趋势 (子图1): 4项营养素 Z-score 归一化趋势
-        2. 平均热量来源构成 (子图2):
-           - 蛋白 4 kcal/g, 碳水 4 kcal/g, 脂肪 9 kcal/g
-           - 参考《中国居民膳食指南》推荐比例
-        3. 营养与消费相关性矩阵 (子图3): 人均营养素与客单价的相关性
-        4. 客单价分布直方图 (子图4): 标注均值和中位数
-
-        数据可靠性说明:
-        - 脂肪供能比计算基于平均总脂肪 / 平均总热量
-        - 附件2仅覆盖部分订单，人均营养数据可能存在选择偏差
-        - 相关性矩阵使用 Pearson 相关系数，假设线性相关
-        """
         daily = self.df_daily.copy()
 
-        # ====== 图4: 营养分析 ======
         fig, axes = plt.subplots(2, 2, figsize=(16, 10))
 
-        # ---- 子图1: 每日营养素 Z-score 趋势 ----
         ax1 = axes[0, 0]
         nutri_cols = ['total_calories', 'total_protein',
                       'total_fat', 'total_carbohydrates']
@@ -646,7 +473,6 @@ class Problem1Analysis:
         ax1.axhline(y=0, color='black', linestyle='-', linewidth=0.5)
         ax1.grid(axis='y', alpha=0.3)
 
-        # ---- 子图2: 平均热量来源构成饼图 ----
         ax2 = axes[0, 1]
         # 三大营养素提供热量:
         # 蛋白质 4 kcal/g, 碳水化合物 4 kcal/g, 脂肪 9 kcal/g
@@ -676,7 +502,6 @@ class Problem1Analysis:
             fontweight='bold', fontsize=10
         )
 
-        # ---- 子图3: 人均营养素与客单价的相关性矩阵 ----
         ax3 = axes[1, 0]
         person_nutri = daily[[
             'avg_calories_per_person', 'avg_protein_per_person',
@@ -700,7 +525,6 @@ class Problem1Analysis:
         ax3.set_title('Nutrition & Spending Correlation Matrix',
                       fontweight='bold', fontsize=11)
 
-        # ---- 子图4: 客单价分布直方图 ----
         ax4 = axes[1, 1]
         order_values = self.loader.df1_raw['consume_money'].clip(upper=30)
         ax4.hist(order_values, bins=60, color=COLORS['primary'], alpha=0.7,
@@ -723,37 +547,10 @@ class Problem1Analysis:
         print('  已保存: p1_nutrition_analysis.png')
 
     def _association_rule_mining(self):
-        """
-        Apriori 关联规则挖掘 — 输出 p1_association_rules.png
-
-        算法步骤:
-        1. 数据准备: 使用购物篮二值矩阵 (basket_filtered)
-        2. 频繁项集挖掘: Apriori 算法, max_len=3
-        3. 多级阈值策略:
-           - 先尝试 min_support=0.01 (1%)
-           - 若规则不足, 降至 0.005
-           - 最低至 0.003 (约 35 个订单)
-        4. 规则筛选:
-           - confidence ≥ 0.25 (置信度不低于 25%)
-           - lift ≥ 1.15 (提升度至少高于随机 15%)
-        5. 可视化: 散点图 + 共现网络图
-
-        阈值选择依据:
-        - 237 种菜品中, 米饭支持度约 0.96 (极为高频)
-        - 其余菜品支持度多在 0.001-0.05 之间
-        - min_support 不能过高 (否则无法捕获菜品的共现关系)
-        - min_support 也不能过低 (否则计算量过大，且噪音多)
-
-        数据局限性:
-        - 关联规则仅反映附件2覆盖的 11,828 个订单 (18.3%)
-        - 有菜品明细的订单可能与无明细的订单存在系统性差异
-        - 规则的代表性需要在论文中限定
-        """
         print('\n  运行 Apriori 关联规则挖掘...')
 
         basket = self.basket  # 过滤后的高频菜品, 11828 x ~100+
 
-        # ---- 步骤1: 多级阈值频繁项集挖掘 ----
         min_support_levels = [0.01, 0.005, 0.003]
         rules_filtered = pd.DataFrame()
 
@@ -804,7 +601,6 @@ class Problem1Analysis:
             print(f'  备选方案: 找到 {len(rules_filtered)} 条规则 '
                   f'(min_support={min_support})')
 
-        # ---- 步骤2: 关联规则可视化 ----
         if len(rules_filtered) > 0:
             self._plot_association_rules(rules_filtered, frequent_itemsets)
         else:
@@ -822,24 +618,10 @@ class Problem1Analysis:
         self.results['num_rules'] = len(rules_filtered)
 
     def _plot_association_rules(self, rules, frequent_itemsets):
-        """
-        绘制关联规则可视化
-
-        子图1: Support vs Confidence 散点图
-        - X 轴: 支持度 (Support)
-        - Y 轴: 置信度 (Confidence)
-        - 点大小代表提升度 (Lift)
-        - 颜色深浅也代表提升度
-
-        子图2: 菜品共现网络图
-        - 节点: 菜品 (大小代表出现频率)
-        - 边: 关联规则 (粗细代表提升度)
-        """
         rules_top = rules.head(30)
 
         fig, axes = plt.subplots(1, 2, figsize=(18, 7))
 
-        # ---- 子图1: Support vs Confidence 散点图 ----
         ax1 = axes[0]
         scatter = ax1.scatter(
             rules_top['support'], rules_top['confidence'],
@@ -867,7 +649,6 @@ class Problem1Analysis:
                         fontsize=6, alpha=0.8,
                         arrowprops=dict(arrowstyle='->', alpha=0.5))
 
-        # ---- 子图2: 菜品共现网络图 ----
         ax2 = axes[1]
         self._plot_dish_network(ax2, rules_top, frequent_itemsets)
 
@@ -877,21 +658,6 @@ class Problem1Analysis:
         print('  已保存: p1_association_rules.png')
 
     def _plot_dish_network(self, ax, rules, frequent_itemsets):
-        """
-        绘制菜品共现网络图
-
-        使用 NetworkX 构建无向图:
-        - 节点: 所有在关联规则中出现的菜品
-        - 边: 关联规则对应的菜品对 (提升度 > 1.2)
-        - 节点大小: 与菜品支持度成正比
-        - 边宽度: 与提升度大小成正比
-        - 布局: spring_layout (力导向布局)
-
-        网络图可直观展示:
-        - 哪些菜品经常被一起购买 (聚簇结构)
-        - 核心菜品 (中心节点) 和边缘菜品
-        - 菜品之间的强弱关联关系
-        """
         # 获取菜品支持度 (用于节点大小)
         dish_freq = frequent_itemsets[
             frequent_itemsets['itemsets'].apply(len) == 1
@@ -954,12 +720,6 @@ class Problem1Analysis:
         ax.axis('off')
 
     def get_results_table(self):
-        """
-        获取分析结果摘要
-
-        Returns:
-            dict: 包含各步骤关键统计量的结果字典
-        """
         return self.results
 
 

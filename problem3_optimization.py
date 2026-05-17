@@ -1,62 +1,5 @@
-"""
-problem3_optimization.py — 问题3: 餐厅菜品优化模型与午餐备菜方案
-============================================================
-题目要求:
-  为提高餐厅营业利润，综合考虑各类营养素需求、该餐厅消费群体的消费习惯
-  以及菜品多样性等因素，建立餐厅菜品优化模型，并给出2025年5月6日至5月12日
-  期间每个工作日的备菜方案。
+"""problem3_optimization.py — 问题3: 餐厅菜品优化模型与午餐备菜方案"""
 
-重要说明:
-  根据数据分析结果，该餐厅午餐占订单总量的 99.2%，晚餐仅占 0.8%
-  (约 500 条记录，仅 11 个日期有晚餐记录)。晚餐数据极度稀疏，
-  无法支持可靠的数学优化建模。因此:
-  - 本题仅提供午餐备菜方案 (符合题目实际需求)
-  - 晚餐部分在策略建议中提出启发式处理的思路，不进行 MILP 建模
-
-解题思路:
-  1. 模型类型: 混合整数线性规划 (Mixed Integer Linear Programming, MILP)
-  2. 决策变量:
-     x_i — 菜品 i 的备菜份数 (整数变量)
-  3. 目标函数:
-     max 利润 = 期望销售收入 - 备菜成本 - 浪费成本 + 偏好奖励
-  4. 约束条件:
-     - 总份量约束: Σx_i ≥ 需求总量 + 安全库存
-     - 营养供给约束: Σ(a_ij × x_i) ∈ [R_j × (1-δ), R_j × (1+δ)]
-     - 菜品多样性约束: 各类别至少 N 份
-     - 单菜品上下限约束: L ≤ x_i ≤ U
-     - 整数约束: x_i ∈ Z⁺
-  5. 求解器: PuLP + CBC (开源 MILP 求解器)
-
-数学公式详解:
-  max Z = Σ(p_i × s_i) - Σ(c_i × x_i) - Σ(h × w_i) + γ × Σ(pop_i × x_i)
-
-  其中:
-  - p_i: 菜品 i 的售价
-  - c_i: 菜品 i 的单位成本
-  - s_i = min(x_i, d_i): 实际期望销售量
-  - d_i = D_total × pop_i: 菜品 i 的期望需求量
-  - w_i = max(x_i - d_i, 0): 浪费量 (备菜超出)
-  - h: 浪费成本系数 (WASTE_COST_RATIO × c_i)
-  - pop_i: 菜品 i 的偏好度 (午餐历史销量归一化)
-  - γ: 偏好奖励权重
-
-参考文献:
-  [7]  黄健等. "中国海洋大学食堂菜谱的优化模型研究"
-       应用数学进展, 2018, 7(4): 389-398.
-       https://www.hanspub.org/journal/PaperInformation?paperID=23869
-  [8]  Padovan M. et al. "Optimized menu formulation to enhance nutritional
-       goals: design of a mixed integer programming model for the workers'
-       food program in Brazil."
-       BMC Nutrition, 2023, 9: 51.
-       https://link.springer.com/article/10.1186/s40795-023-00705-0
-  [9]  Cohen J.F.W. et al. "Improving school lunch menus with multi-objective
-       optimisation: nutrition, cost, consumption and environmental impacts."
-       Public Health Nutrition, 2023, 26(8): 1715-1725.
-  [10] Gazendam A. et al. "A Review of the Use of Linear Programming to
-       Optimize Diets, Nutritiously, Economically and Environmentally."
-       Frontiers in Nutrition, 2018, 5: 48.
-       https://www.frontiersin.org/articles/10.3389/fnut.2018.00048
-"""
 
 import pandas as pd
 import numpy as np
@@ -76,20 +19,8 @@ from utils import check_nutrition_balance
 
 
 class Problem3Optimization:
-    """
-    问题3: 午餐备菜优化模型
-
-    使用混合整数线性规划 (MILP) 为 2025年5月6-12日
-    的每个工作日生成最优午餐备菜方案。
-    """
 
     def __init__(self, loader=None):
-        """
-        初始化优化模型
-
-        Args:
-            loader: DataLoader 实例或 None
-        """
         print('\n' + '=' * 60)
         print('问题3: 菜品备菜优化模型 (午餐)')
         print('=' * 60)
@@ -111,17 +42,6 @@ class Problem3Optimization:
         self.results = {}
 
     def _prepare_dish_stats(self):
-        """
-        准备菜品统计数据
-
-        从附件2的交易明细中提取:
-        - 每种菜品的总销量 (total_count)
-        - 午餐偏好度 (lunch_popularity)
-        - 晚餐偏好度 (dinner_popularity，仅供参考)
-
-        注意: 晚餐偏好度仅用于数据分析比较，
-        不作为优化模型的输入参数。
-        """
         df2 = self.loader.df2_raw
         df1 = self.loader.df1_raw
 
@@ -180,22 +100,6 @@ class Problem3Optimization:
             }
 
     def _select_dishes_for_optimization(self, n_dishes=50):
-        """
-        选择参与午餐优化的菜品列表
-
-        选择标准:
-        1. 按午餐历史销量降序排列
-        2. 每个类别 (主食/荤菜/半荤半素/素菜/其他) 至少 3 种
-        3. 总量不超过 n_dishes
-
-        优先级: 午餐历史销量 > 类别覆盖 > 随机补充
-
-        Args:
-            n_dishes: 最多选择的菜品数量
-
-        Returns:
-            list of str: 菜品名称列表
-        """
         stats = self.dish_stats.copy()
         stats = stats.sort_values('lunch_count', ascending=False)
 
@@ -222,42 +126,14 @@ class Problem3Optimization:
 
     def optimize_meal(self, dishes, predicted_diners,
                       predicted_nutrition=None):
-        """
-        午餐 MILP 优化核心函数
-
-        步骤:
-        1. 创建 PuLP 最大化问题
-        2. 定义整数决策变量 x_i (每种菜品的备菜份数)
-        3. 参数准备: 价格、成本、营养成分、偏好度
-        4. 目标函数构建:
-           max Z = 期望收入 - 备菜成本 - 浪费成本 + 偏好奖励
-        5. 约束条件定义:
-           (a) 总份量: demand × 0.85 ≤ Σx_i ≤ demand × 1.30
-           (b) 营养供给: Σ(nutr_i × x_i) ∈ [target × (1-δ), target × (1+δ)]
-           (c) 类别多样性: 每类至少 10 份
-           (d) 单品上下限: 5 ≤ x_i ≤ demand × 0.25
-        6. CBC 求解器求解 (timeLimit=120s)
-        7. 提取并返回方案
-
-        Args:
-            dishes: list of str, 可选菜品名称
-            predicted_diners: int, 预测就餐人数
-            predicted_nutrition: dict or None, 预测营养素需求总量
-
-        Returns:
-            dict: 包含完整备菜方案的字典
-        """
         n_dishes = len(dishes)
 
-        # ---- 步骤1: 创建优化问题 ----
         prob = LpProblem("LunchPrepOptimization", LpMaximize)
 
-        # ---- 步骤2: 决策变量 ----
         x = {}
         for i, dish in enumerate(dishes):
             x[i] = LpVariable(f"x_{i}", lowBound=0, cat=LpInteger)
 
-        # ---- 步骤3: 参数准备 ----
         prices = []
         costs = []
         calories_list = []
@@ -289,7 +165,6 @@ class Problem3Optimization:
                 pop = 0.01
             popularities.append(pop)
 
-        # ---- 步骤4: 需求参数计算 ----
         # 人均期望菜品数 (每个顾客平均选 5-6 种菜品)
         avg_dishes_per_person = 5.5
         total_demand = predicted_diners * avg_dishes_per_person
@@ -312,7 +187,6 @@ class Problem3Optimization:
             target_carbs = predicted_nutrition.get('carbohydrates', 23000)
             target_fiber = predicted_nutrition.get('fiber', 1500)
 
-        # ---- 步骤5: 目标函数构建 ----
         # 对每种菜品构建线性表达式
 
         revenue_terms = []     # 期望销售收入
@@ -352,7 +226,6 @@ class Problem3Optimization:
             + gamma_popularity * lpSum(popularity_terms)      # 偏好奖励
         )
 
-        # ---- 步骤6: 约束条件 ----
 
         # (a) 总份量约束
         prob += (
@@ -421,10 +294,8 @@ class Problem3Optimization:
             prob += x[i] >= min_per_dish
             prob += x[i] <= max_per_dish
 
-        # ---- 步骤7: 求解 ----
         prob.solve(PULP_CBC_CMD(msg=False, timeLimit=120))
 
-        # ---- 步骤8: 提取结果 ----
         status = LpStatus[prob.status]
 
         if status != 'Optimal':
@@ -516,24 +387,8 @@ class Problem3Optimization:
         return solution
 
     def run(self, prediction_csv=None):
-        """
-        运行完整的午餐备菜优化流程
-
-        Args:
-            prediction_csv: str or None. 问题2的预测CSV路径。
-                           若提供，直接读取预测结果；否则回退到历史均值估算。
-
-        步骤:
-        1. 加载预测数据 (从问题2输出或历史均值)
-        2. 确定优化日期 (2025年5月6-12日的工作日)
-        3. 选择参与优化的菜品 (Top 50 午餐菜品)
-        4. 对每个工作日逐日求解 MILP
-        5. 可视化输出 (p3_meal_plans.png)
-        6. 保存详细方案 CSV (p3_meal_plan_detail.csv)
-        """
         print('\n>>> 3.1 加载预测数据')
 
-        # ---- 加载问题2预测结果 ----
         if prediction_csv is not None and os.path.exists(prediction_csv):
             pred_df = pd.read_csv(prediction_csv, index_col=0, parse_dates=True)
             print(f'  从问题2加载预测: {prediction_csv}')
@@ -608,18 +463,6 @@ class Problem3Optimization:
         return self.results
 
     def _get_predicted_diners(self, date, pred_df=None):
-        """
-        获取预测的午餐就餐人数
-        
-        优先使用问题2的预测结果，否则回退到历史同星期均值。
-
-        Args:
-            date: pd.Timestamp, 目标日期
-            pred_df: pd.DataFrame or None, 问题2的预测结果
-
-        Returns:
-            float: 预测的就餐人数
-        """
         if pred_df is not None:
             date_str = date.strftime('%Y-%m-%d')
             if date_str in pred_df.index.astype(str):
@@ -629,7 +472,6 @@ class Problem3Optimization:
         return self._fallback_diners(date)
 
     def _fallback_diners(self, date):
-        """回退: 历史同星期均值"""
         df = self.df_daily[self.df_daily['total_orders'] > 0].copy()
         dow = date.dayofweek
         same_dow = df[df['day_of_week'] == dow]
@@ -638,14 +480,6 @@ class Problem3Optimization:
         return df['total_orders'].mean()
 
     def _get_predicted_nutrition(self, pred_df=None):
-        """
-        获取预测的营养素需求总量
-        
-        优先使用问题2的预测结果，否则回退到历史均值。
-
-        Returns:
-            dict: 各营养素日均总量
-        """
         if pred_df is not None and 'total_calories' in pred_df.columns:
             return {
                 'calories': pred_df['total_calories'].mean(),
@@ -665,15 +499,6 @@ class Problem3Optimization:
         }
 
     def _plot_meal_plans(self, all_plans, plan_dates):
-        """
-        可视化午餐备菜方案 — 输出 p3_meal_plans.png
-
-        子图布局 (2 × 2):
-        1. 每日备菜总份数柱状图 (含营养和实际供给对比)
-        2. 每日预期利润率
-        3. 菜品类别分布饼图 (以首个工作日为例)
-        4. 人均营养满足度雷达图
-        """
         fig = plt.figure(figsize=(16, 10))
 
         # 获取午餐计划
@@ -681,7 +506,6 @@ class Problem3Optimization:
         x = range(len(lunch_plans))
         labels = [p['date'][-5:] for p in lunch_plans]
 
-        # ---- 子图1: 每日备菜总份数 ----
         ax1 = fig.add_subplot(2, 2, 1)
 
         bars = ax1.bar(x, [p['total_servings'] for p in lunch_plans],
@@ -701,7 +525,6 @@ class Problem3Optimization:
                     f'{plan["total_servings"]:.0f}',
                     ha='center', fontsize=8, fontweight='bold')
 
-        # ---- 子图2: 预期利润率 ----
         ax2 = fig.add_subplot(2, 2, 2)
         margins = []
         for p in lunch_plans:
@@ -726,7 +549,6 @@ class Problem3Optimization:
                     bar.get_height() + 0.5,
                     f'{m:.1f}%', ha='center', fontsize=8)
 
-        # ---- 子图3: 菜品类别分布 (首个工作日) ----
         ax3 = fig.add_subplot(2, 2, 3)
         if lunch_plans:
             sample = lunch_plans[0]['dishes']
@@ -750,7 +572,6 @@ class Problem3Optimization:
                 fontweight='bold', fontsize=11
             )
 
-        # ---- 子图4: 人均营养满足度雷达图 ----
         # 使用中间日期的方案 (第3天或第1天)
         mid_idx = min(2, len(lunch_plans) - 1)
         plan_for_radar = lunch_plans[mid_idx]
@@ -808,17 +629,6 @@ class Problem3Optimization:
         print('  已保存: p3_meal_plans.png')
 
     def _print_detailed_plans(self, all_plans):
-        """
-        打印详细备菜方案表格
-
-        展示每日午餐的:
-        - 预计就餐人数、备菜总份数
-        - 预期收入、备菜成本、预期利润
-        - Top 15 菜品的备菜详情
-        - 营养汇总信息
-
-        同时保存完整方案到 CSV 文件。
-        """
         print('\n' + '=' * 80)
         print('详细备菜方案 (2025年5月6日-12日 工作日 午餐)')
         print('=' * 80)
@@ -861,7 +671,6 @@ class Problem3Optimization:
                   f'脂肪供能比={bal["fat_ratio"]:.1%}, '
                   f'碳水供能比={bal["carbs_ratio"]:.1%}')
 
-        # ---- 保存完整方案到 CSV ----
         all_rows = []
         for plan in all_plans:
             for d in plan['dishes']:

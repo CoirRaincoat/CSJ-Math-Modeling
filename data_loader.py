@@ -1,37 +1,5 @@
-"""
-data_loader.py — 数据加载、预处理与特征工程模块
-==============================================
-负责:
-1. 加载附件1 (餐厅流水) 和附件2 (菜品消费详情)
-2. 数据清洗: 缺失值处理、异常值检测 (IQR方法)、数据类型转换
-3. 特征工程: 日期特征提取、餐次划分、菜品分类
-4. 构建多层级数据集: 交易明细表、日级汇总表、餐次级汇总表
-5. 构建关联规则分析所需的购物篮格式数据
+"""data_loader.py — 数据加载、预处理与特征工程模块"""
 
-数据流 (以 DataLoader 为核心):
-  附件1.xlsx (订单级) + 附件2.xlsx (菜品级)
-        ↓ _load_data()
-    原始 DataFrame
-        ↓ _clean_and_preprocess()
-    清洗后 DataFrame (含日期/餐次/星期特征)
-        ↓ _feature_engineering()
-    融合交易明细表 (df_trans) + 菜品信息表 (dish_info)
-        ↓ _build_aggregations()
-    → df_daily (日级汇总) + df_meal (餐次级汇总)
-        ↓ _build_basket()
-    → basket_binary (11828订单 × 高频菜品的 0/1 矩阵)
-
-关键技术点:
-  - 菜品分类: 关键词匹配 (约46%准确) + 营养特征补充分类 (utils.classify_dish_by_nutrition)
-  - 异常值: 使用 IQR 方法标记 (保留但不剔除，因餐饮场景中大额消费可能合理)
-  - 日期补全: 日级汇总表使用完整日期范围索引，停业日用 NaN 填充
-
-参考文献:
-  [4] Hyndman, R.J., Athanasopoulos, G. "Forecasting: Principles and Practice"
-      时间序列特征工程方法. OTexts.
-      https://otexts.com/fpp3/ (英文)
-      https://otexts.com/fpp3cn/ (中文)
-"""
 
 import pandas as pd
 import numpy as np
@@ -44,36 +12,8 @@ from utils import classify_dish_by_nutrition
 
 
 class DataLoader:
-    """
-    数据加载与预处理类
-
-    封装了完整的数据处理流水线:
-    1. _load_data(): 加载 Excel 文件
-    2. _clean_and_preprocess(): 清洗原始数据
-    3. _feature_engineering(): 特征工程 (菜品分类 + 融合)
-    4. _build_aggregations(): 构建汇总表
-    5. _build_basket(): 构建购物篮
-
-    对外提供统一接口获取不同粒度的数据:
-    - get_daily_data(): 日级汇总 (完整31个月)
-    - get_meal_data(): 餐次级汇总 (午餐+晚餐)
-    - get_transaction_data(): 融合后的交易明细
-    - get_dish_info(): 菜品信息表
-    - get_basket_data(): 购物篮格式 (用于 Apriori)
-    - get_lunch_data() / get_dinner_data(): 按餐次筛选
-    """
 
     def __init__(self):
-        """
-        初始化 DataLoader，执行完整的 ETL 流程
-
-        数据处理顺序:
-        1. _load_data() → 加载 Excel 文件
-        2. _clean_and_preprocess() → 清洗和预处理
-        3. _feature_engineering() → 特征工程
-        4. _build_aggregations() → 构建汇总表
-        5. _build_basket() → 构建购物篮
-        """
         print('=' * 60)
         print('数据加载与预处理模块')
         print('=' * 60)
@@ -97,26 +37,8 @@ class DataLoader:
         self._build_basket()
 
     def _load_data(self):
-        """
-        加载附件1和附件2原始数据（含所有 sheet）
-
-        附件1 (餐厅销售流水信息表) — 3个 sheet:
-        - indent_1: 2022-09-02 → 2023-11-28 (~64,587 订单)
-        - indent_2: 2023-11-28 → 2024-12-30 (~65,536 订单)
-        - indent_3: 2024-12-30 → 2025-04-30 (~19,503 订单)
-        - 合计: ~149,626 订单, 时间跨度 2022-09 至 2025-04 (31个月)
-
-        附件2 (部分消费订单菜品具体信息表) — 15个 sheet:
-        - indent_details_1~15: 共 ~72,000 条菜品明细记录
-        - 覆盖仅部分订单的菜品级详情
-
-        附件3 (数据说明) — 2个 sheet:
-        - 附件1数据说明: 18 个字段的英文/中文对照
-        - 附件2数据说明: 14 个字段的英文/中文对照
-        """
         print('\n[1/5] 加载原始数据（所有 sheet）...')
 
-        # --- 附件1: 加载全部 3 个 sheet 并拼接 ---
         df1_sheets = []
         for sheet_name in pd.ExcelFile(ATTACHMENT1).sheet_names:
             df_sheet = pd.read_excel(ATTACHMENT1, sheet_name=sheet_name)
@@ -126,7 +48,6 @@ class DataLoader:
         print(f'  附件1 合计加载完成: {self.df1_raw.shape[0]:,} 行, '
               f'{self.df1_raw.shape[1]} 列')
 
-        # --- 附件2: 加载全部 15 个 sheet 并拼接 ---
         df2_sheets = []
         for sheet_name in pd.ExcelFile(ATTACHMENT2).sheet_names:
             df_sheet = pd.read_excel(ATTACHMENT2, sheet_name=sheet_name)
@@ -145,23 +66,11 @@ class DataLoader:
         print(f'  附件2列名: {list(self.df2_raw.columns)}')
 
     def _clean_and_preprocess(self):
-        """
-        数据清洗与预处理
-
-        处理步骤 (按顺序):
-        1. 日期时间字段提取: consume_time → date, hour, day_of_week, month, year
-        2. 餐次划分: 根据小时划分为 lunch/dinner/other
-        3. 异常值标记: 对消费金额和营养字段使用 IQR 方法标记
-           (标记但不剔除，因为餐饮场景中大额消费可能合理)
-        4. 剔除全缺失列: wallet_id, card_serial, user_phone_number, qr_code
-        5. consume_way 处理: consume_way=2(20条),=3(65514条)，差异极小
-        """
         print('\n[2/5] 数据清洗与预处理...')
 
         df1 = self.df1_raw.copy()
         df2 = self.df2_raw.copy()
 
-        # ---- 附件1 清洗 ----
 
         # 步骤1: 提取日期时间特征
         # consume_time 字段格式: "YYYY-MM-DD HH:MM:SS"
@@ -208,7 +117,6 @@ class DataLoader:
 
         self.df1_raw = df1
 
-        # ---- 附件2 清洗 ----
 
         # 步骤1: 数值列类型检查和转换
         # 确保价格、重量等数值字段为正确的数值类型
@@ -225,27 +133,6 @@ class DataLoader:
         print(f'  清洗完成')
 
     def _classify_dish(self, name, nutrition=None):
-        """
-        根据菜品名称关键词进行菜品分类 (第一轮)
-
-        分类逻辑 (优先级从高到低):
-        1. 主食: 米饭、面条等高碳水食物 (优先级最高，避免被误分类)
-        2. 荤菜: 肉类、禽类、鱼类
-        3. 半荤半素: 含少量肉类的蔬菜类
-        4. 素菜: 纯蔬菜、豆制品
-        5. 其他: 无法匹配以上类别
-
-        注意: 此方法为第一轮关键词分类。
-        对于分类为 "其他" 的菜品，会在 _feature_engineering()
-        中使用 nutritional_feature_classify() 进行第二轮营养特征分类。
-
-        Args:
-            name: 菜品名称字符串
-            nutrition: 可选，包含营养信息的 dict (暂用于日志)
-
-        Returns:
-            str: 菜品类别 (主食/荤菜/半荤半素/素菜/其他)
-        """
         if not isinstance(name, str):
             return '其他'
 
@@ -258,24 +145,6 @@ class DataLoader:
         return '其他'
 
     def _nutritional_feature_classify(self, row):
-        """
-        基于营养成分的菜品辅助分类 (第二轮)
-
-        对于第一轮关键词分类为 "其他" 的菜品，使用营养成分特征进行二次判定。
-        此方法调用 utils.py 中的 classify_dish_by_nutrition() 函数。
-
-        分类逻辑 (基于每100g的营养成分):
-        - 高碳水 + 低蛋白 → 主食
-        - 高蛋白 (>8g/100g) 或高脂肪 (>8g/100g) → 荤菜
-        - 中蛋白 (>3g) 或中脂肪 (>3g) → 半荤半素
-        - 低蛋白 + 低脂肪 + 高纤维 → 素菜
-
-        Args:
-            row: pd.Series 行，需包含 calories, protein, fat, carbohydrates, fiber 列
-
-        Returns:
-            str: 菜品类别
-        """
         # 标准化营养成分: 如果 weight 字段可用，计算每100g的含量
         weight = row.get('weight', np.nan)
         if pd.notna(weight) and weight > 0:
@@ -297,23 +166,8 @@ class DataLoader:
         return classify_dish_by_nutrition(cal, protein, fat, carbs, fiber)
 
     def _feature_engineering(self):
-        """
-        特征工程
-
-        主要步骤:
-        1. 菜品分类 (第一轮: 关键词匹配)
-        2. 菜品分类 (第二轮: 营养特征辅助，针对 "其他" 类)
-        3. 构建菜品信息表 (dish_info): 每种菜品的价格/营养/销量汇总
-        4. 融合附件1和附件2 (df_trans): 便于跨表分析
-
-        输出:
-        - self.df2_raw: 添加 category 列
-        - self.dish_info: 菜品信息表 (237种菜品的主要属性)
-        - self.df_trans: 融合交易明细表
-        """
         print('\n[3/5] 特征工程...')
 
-        # ---- 步骤1: 第一轮关键词分类 ----
         df2 = self.df2_raw.copy()
         df2['category'] = df2['dish_name'].apply(self._classify_dish)
 
@@ -325,7 +179,6 @@ class DataLoader:
             pct = cnt / total_dishes * 100
             print(f'    {cat}: {cnt} 种 ({pct:.1f}%)')
 
-        # ---- 步骤2: 第二轮营养特征补充分类 ----
         # 对 "其他" 类菜品使用营养特征进行二次分类
         other_mask = df2['category'] == '其他'
         if other_mask.sum() > 0:
@@ -359,7 +212,6 @@ class DataLoader:
 
         self.df2_raw = df2
 
-        # ---- 步骤3: 构建菜品信息表 ----
         # 对每种菜品 (dish_serial) 进行聚合汇总
         self.dish_info = df2.groupby('dish_serial').agg(
             dish_name=('dish_name', 'first'),
@@ -375,12 +227,6 @@ class DataLoader:
             total_revenue=('total_price', 'sum'),        # 总销售收入
         ).reset_index()
 
-        # 估算成本 (按菜品类别差异化成本率)
-        # 替换统一45%假设, 采用 config.py 中的 COST_RATIO_BY_CATEGORY
-        # 依据: 餐饮行业成本结构 (Padovan et al. 2023, BMC Nutrition)
-        #   荤菜: 食材成本50-65%+人工 ≈ 60%
-        #   素菜: 食材成本20-30%+人工 ≈ 30%
-        #   主食: 食材成本15-25%+人工 ≈ 28%
         self.dish_info['cost_ratio'] = self.dish_info['category'].map(
             COST_RATIO_BY_CATEGORY
         ).fillna(0.45)
@@ -396,7 +242,6 @@ class DataLoader:
 
         print(f'  菜品信息表构建完成: {len(self.dish_info)} 种菜品')
 
-        # ---- 步骤4: 融合附件1和附件2 ----
         # 附件1 提供订单级别的营养汇总 (覆盖100%订单)
         # 附件2 提供菜品级别的详细信息 (覆盖约18%订单)
         # 融合后可在订单粒度上同时看到宏观营养和微观菜品信息
@@ -414,26 +259,10 @@ class DataLoader:
         print(f'  覆盖订单数: {self.df_trans["indent_id"].nunique():,}')
 
     def _build_aggregations(self):
-        """
-        构建日级汇总表 (df_daily) 和餐次级汇总表 (df_meal)
-
-        df_daily 结构 (236天):
-        - total_orders: 每日就餐人数 (去重 indent_id)
-        - total_sales: 每日销售总额
-        - avg_order_value: 客单价 (销售总额/就餐人数)
-        - total_calories/protein/fat/carbs/fiber: 每日营养素总量
-        - avg_*_per_person: 每日人均营养素摄入量
-        - day_of_week, is_weekend, month, year: 时间特征
-
-        df_meal 结构 (~245条):
-        - 按日期和餐次 (lunch/dinner) 分组
-        - 统计每个餐次的总订单数、销售额、营养素总量
-        """
         print('\n[4/5] 构建汇总表...')
 
         df1 = self.df1_raw
 
-        # ---- 日级汇总表 ----
         daily_agg = df1.groupby('date').agg(
             # 就餐人数: 每个 indent_id 视为一位顾客
             total_orders=('indent_id', 'nunique'),
@@ -473,7 +302,6 @@ class DataLoader:
         print(f'  日均订单: {daily_agg["total_orders"].mean():.0f}, '
               f'日均销售额: {daily_agg["total_sales"].mean():.0f} 元')
 
-        # ---- 餐次级汇总表 ----
         # 仅保留午餐和晚餐 (meal_period != 'other')
         meal_agg = df1[df1['meal_period'] != 'other'].groupby(
             ['date', 'meal_period']
@@ -498,23 +326,6 @@ class DataLoader:
         print(f'  晚餐记录: {dinner_count} 条')
 
     def _build_basket(self):
-        """
-        构建购物篮格式数据 (用于 Apriori 关联规则挖掘)
-
-        购物篮格式:
-        - 每行 = 一个订单 (indent_id)
-        - 每列 = 一种菜品的购买数量
-        - 值 = 0 (未购买) / 1 (购买了)
-
-        预处理:
-        - 过滤低频菜品 (出现次数 < 50 的菜品排除)
-        - 原因: 低频菜品噪音大，且数据稀疏时 Apriori 难以生成有意义规则
-
-        输出:
-        - self.basket_binary: 完整二值矩阵 (11828 × 237)
-        - self.basket_filtered: 过滤后的矩阵 (11828 × ~100+)
-        - self.basket_data: 对外接口 (指向 basket_filtered)
-        """
         print('\n[5/5] 构建购物篮数据...')
 
         df2 = self.df2_raw
@@ -547,45 +358,29 @@ class DataLoader:
 
         self.basket_data = self.basket_filtered
 
-    # ===== 对外数据访问接口 =====
 
     def get_daily_data(self):
-        """返回日级汇总数据 (236天 × 18列)"""
         return self.df_daily
 
     def get_meal_data(self):
-        """返回餐次级汇总数据 (午餐+晚餐)"""
         return self.df_meal
 
     def get_transaction_data(self):
-        """返回融合后的交易明细数据"""
         return self.df_trans
 
     def get_dish_info(self):
-        """返回菜品信息表 (237种菜品 × 15列)"""
         return self.dish_info
 
     def get_basket_data(self):
-        """返回过滤后的购物篮数据 (用于 Apriori)"""
         return self.basket_data
 
     def get_lunch_data(self):
-        """返回午餐时段的原始交易数据"""
         return self.df1_raw[self.df1_raw['meal_period'] == 'lunch']
 
     def get_dinner_data(self):
-        """返回晚餐时段的原始交易数据"""
         return self.df1_raw[self.df1_raw['meal_period'] == 'dinner']
 
     def print_summary(self):
-        """
-        打印数据摘要统计
-
-        输出内容包括:
-        - 附件1: 总订单数、日期跨度、日均指标
-        - 附件2: 总记录数、菜品数、客单价
-        - 餐次分布: 午餐/晚餐/其他时段的比例
-        """
         print('\n' + '=' * 60)
         print('数据摘要')
         print('=' * 60)
@@ -623,15 +418,6 @@ class DataLoader:
 
 
 def load_all_data():
-    """
-    便捷函数: 一次性加载并预处理所有数据
-
-    此函数是 main.py 和各问题模块的入口点。
-    支持 DataLoader 只实例化一次，通过参数传递给各问题模块。
-
-    Returns:
-        DataLoader: 包含所有处理完毕数据的 DataLoader 对象
-    """
     return DataLoader()
 
 
