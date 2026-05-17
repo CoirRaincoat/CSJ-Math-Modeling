@@ -29,7 +29,7 @@ class Problem2Prediction:
                    'total_protein', 'total_fat', 'total_carbohydrates']
     TARGET_NAMES = {
         'total_orders': 'Daily Diners',
-        'total_sales': 'Daily Sales (Yuan)',
+        'total_sales': '日销售额 (元)',
         'total_calories': 'Daily Calories (kcal)',
         'total_protein': 'Daily Protein (g)',
         'total_fat': 'Daily Fat (g)',
@@ -131,9 +131,9 @@ class Problem2Prediction:
 
         fig, axes = plt.subplots(1, 2, figsize=(14, 5))
         plot_acf(df['total_orders'].dropna(), lags=30, ax=axes[0])
-        axes[0].set_title('ACF - Daily Orders', fontweight='bold')
+        axes[0].set_title('ACF — 日订单数', fontweight='bold')
         plot_pacf(df['total_orders'].dropna(), lags=30, ax=axes[1])
-        axes[1].set_title('PACF - Daily Orders', fontweight='bold')
+        axes[1].set_title('PACF — 日订单数', fontweight='bold')
         plt.tight_layout()
         fig.savefig(f'{OUTPUT_DIR}/p2_acf_pacf.png', dpi=300)
         plt.close()
@@ -421,10 +421,10 @@ class Problem2Prediction:
             resid = actuals[col] - preds[col]
             ax.hist(resid, bins=40, color=COLORS['primary'], alpha=0.7, edgecolor='white')
             ax.axvline(0, color=COLORS['accent'], linestyle='--', linewidth=2)
-            ax.set_title(f'Residual Dist: {self.TARGET_NAMES[col]}\n'
+            ax.set_title(f'残差分布: {self.TARGET_NAMES[col]}\n'
                         f'(mean={np.mean(resid):.1f}, std={np.std(resid):.1f})')
-            ax.set_xlabel('Residual')
-            ax.set_ylabel('Frequency')
+            ax.set_xlabel('残差')
+            ax.set_ylabel('频数')
             ax.grid(alpha=0.3)
 
         # Row 2: Residual ACF for 3 key targets
@@ -437,7 +437,7 @@ class Problem2Prediction:
                 # Ljung-Box test
                 lb_result = acorr_ljungbox(valid_resid, lags=[7, 14, 21], return_df=True)
                 lb_pvals = lb_result['lb_pvalue'].values
-                ax.set_title(f'Residual ACF: {self.TARGET_NAMES[col]}\n'
+                ax.set_title(f'残差 ACF: {self.TARGET_NAMES[col]}\n'
                             f'LB p(lag=7)={lb_pvals[0]:.3f}, '
                             f'p(14)={lb_pvals[1]:.3f}')
             else:
@@ -464,7 +464,7 @@ class Problem2Prediction:
                     dow_mapes.append(0)
             
             ax.bar(dow_names, dow_mapes, color=COLORS['primary'], alpha=0.8, edgecolor='white')
-            ax.set_title(f'MAPE by Weekday: {self.TARGET_NAMES[col]}')
+            ax.set_title(f'按星期 MAPE: {self.TARGET_NAMES[col]}')
             ax.set_ylabel('MAPE (%)')
             ax.grid(axis='y', alpha=0.3)
 
@@ -532,10 +532,10 @@ class Problem2Prediction:
 
         ax = axes[0]
         ax.plot(wf_dates, wf_actuals, 'o-', color=COLORS['primary'], 
-                markersize=3, linewidth=1, alpha=0.7, label='Actual')
+                markersize=3, linewidth=1, alpha=0.7, label='实际值')
         ax.plot(wf_dates, wf_predictions, 's-', color=COLORS['accent'],
-                markersize=3, linewidth=1, alpha=0.7, label='Predicted')
-        ax.set_title(f'Walk-Forward Validation: {self.TARGET_NAMES[target_col]}\n'
+                markersize=3, linewidth=1, alpha=0.7, label='预测值')
+        ax.set_title(f'Walk-Forward 验证: {self.TARGET_NAMES[target_col]}\n'
                     f'(MAE={wf_mae:.1f}, MAPE={wf_mape:.1f}%)')
         ax.set_ylabel(self.TARGET_NAMES[target_col])
         ax.legend(fontsize=8)
@@ -545,9 +545,9 @@ class Problem2Prediction:
         resid = np.array(wf_actuals) - np.array(wf_predictions)
         ax.scatter(wf_predictions, resid, alpha=0.5, s=15, c=COLORS['primary'])
         ax.axhline(0, color=COLORS['accent'], linestyle='--', linewidth=2)
-        ax.set_xlabel('Predicted')
-        ax.set_ylabel('Residual')
-        ax.set_title(f'Residual vs Predicted\n(bias={np.mean(resid):.1f})')
+        ax.set_xlabel('预测值')
+        ax.set_ylabel('残差')
+        ax.set_title(f'残差 vs 预测值\n(偏差={np.mean(resid):.1f})')
         ax.grid(alpha=0.3)
 
         plt.tight_layout()
@@ -694,7 +694,7 @@ class Problem2Prediction:
 
             # Bars for point forecast
             ax.bar(x_idx, pred_df[col].values, color=COLORS['primary'],
-                   alpha=0.7, edgecolor='white', label='Forecast')
+                   alpha=0.7, edgecolor='white', label='预测值')
 
             # CI ribbon if available
             if f'{col}_lower' in pred_df.columns and f'{col}_upper' in pred_df.columns:
@@ -702,7 +702,7 @@ class Problem2Prediction:
                                 pred_df[f'{col}_lower'].values,
                                 pred_df[f'{col}_upper'].values,
                                 alpha=0.2, color=COLORS['accent'],
-                                label='95% CI')
+                                label='95% 置信区间')
 
             ax.set_xticks(range(0, len(may_workdays), 5))
             ax.set_xticklabels(
@@ -710,7 +710,7 @@ class Problem2Prediction:
                  for d in range(0, len(may_workdays), 5)],
                 rotation=45, fontsize=8
             )
-            ax.set_title(f'{name} - May 2025 Workdays', fontweight='bold', fontsize=10)
+            ax.set_title(f'{name} — 2025年5月工作日预测', fontweight='bold', fontsize=10)
             ax.set_ylabel(name)
             ax.grid(axis='y', alpha=0.3)
             ax.legend(fontsize=8)

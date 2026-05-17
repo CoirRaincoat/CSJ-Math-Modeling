@@ -116,8 +116,8 @@ class Problem1Analysis:
                          color=colors_top[::-1], edgecolor='white', linewidth=0.5)
         ax1.set_yticks(range(20))
         ax1.set_yticklabels(top20_orders['dish_name'].values[::-1], fontsize=8)
-        ax1.set_xlabel('Total Order Count')
-        ax1.set_title('Top 20 Dishes by Order Frequency', fontweight='bold',
+        ax1.set_xlabel('订单数')
+        ax1.set_title('菜品销量 Top 20', fontweight='bold',
                       fontsize=11)
         ax1.invert_yaxis()
 
@@ -127,8 +127,8 @@ class Problem1Analysis:
                          color=colors_top[::-1], edgecolor='white', linewidth=0.5)
         ax2.set_yticks(range(20))
         ax2.set_yticklabels(top20_rev['dish_name'].values[::-1], fontsize=8)
-        ax2.set_xlabel('Total Revenue (Yuan)')
-        ax2.set_title('Top 20 Dishes by Revenue', fontweight='bold',
+        ax2.set_xlabel('销售额 (元)')
+        ax2.set_title('菜品销售额 Top 20', fontweight='bold',
                       fontsize=11)
         ax2.invert_yaxis()
 
@@ -150,15 +150,15 @@ class Problem1Analysis:
         ax3_2.plot(x, dish_sorted['cumsum_pct'].values,
                    color=COLORS['accent'], linewidth=2)
         ax3_2.axhline(y=80, color=COLORS['warning'], linestyle='--',
-                      alpha=0.7, linewidth=1, label='80% threshold')
+                      alpha=0.7, linewidth=1, label='80% 阈值')
         ax3_2.axhline(y=95, color=COLORS['danger'], linestyle='--',
-                      alpha=0.5, linewidth=1, label='95% threshold')
-        ax3.set_xlabel('Dish Rank (by order count)')
-        ax3.set_ylabel('Percentage of Total Orders (%)',
+                      alpha=0.5, linewidth=1, label='95% 阈值')
+        ax3.set_xlabel('菜品排名 (按订单数)')
+        ax3.set_ylabel('占总订单百分比 (%)',
                        color=COLORS['primary'])
-        ax3_2.set_ylabel('Cumulative Percentage (%)',
+        ax3_2.set_ylabel('累计百分比 (%)',
                          color=COLORS['accent'])
-        ax3.set_title('ABC Analysis (Pareto Chart) of Dish Sales',
+        ax3.set_title('菜品 ABC 分类 (帕累托图)',
                       fontweight='bold', fontsize=11)
         ax3_2.legend(loc='lower right', fontsize=8)
 
@@ -200,7 +200,7 @@ class Problem1Analysis:
             colors=colors_cat[:len(cat_order)], startangle=90,
             explode=[0.05]*len(cat_order), textprops={'fontsize': 9}
         )
-        ax4.set_title('Dish Category Distribution (by order items)',
+        ax4.set_title('菜品类别分布 (按订单条目)',
                       fontweight='bold', fontsize=11)
 
         # 保存图表
@@ -229,22 +229,22 @@ class Problem1Analysis:
 
         # 绘制订单数 (面积图)
         ax1.fill_between(range(len(daily)), daily['total_orders'].values,
-                         alpha=0.3, color=COLORS['primary'], label='Orders')
+                         alpha=0.3, color=COLORS['primary'], label='订单数')
         # 绘制销售额 (折线图)
         ax1_2.plot(range(len(daily)), daily['total_sales'].values,
-                   color=COLORS['accent'], linewidth=1.5, label='Sales')
+                   color=COLORS['accent'], linewidth=1.5, label='销售额')
 
         # 7日移动平均
         window = 7
         ma_orders = daily['total_orders'].rolling(window=window).mean()
         ax1.plot(range(len(daily)), ma_orders.values,
                  color=COLORS['danger'], linewidth=2, linestyle='--',
-                 label=f'{window}-day MA')
+                 label=f'{window}日移动平均')
 
-        ax1.set_xlabel('Day Index')
-        ax1.set_ylabel('Daily Orders', color=COLORS['primary'])
-        ax1_2.set_ylabel('Daily Sales (Yuan)', color=COLORS['accent'])
-        ax1.set_title('Daily Orders and Sales Trend', fontweight='bold',
+        ax1.set_xlabel('天数序号')
+        ax1.set_ylabel('日订单数', color=COLORS['primary'])
+        ax1_2.set_ylabel('日销售额 (元)', color=COLORS['accent'])
+        ax1.set_title('日订单数与销售额趋势', fontweight='bold',
                       fontsize=11)
 
         # 合并图例
@@ -267,8 +267,8 @@ class Problem1Analysis:
         for patch, color in zip(bp['boxes'], weekday_colors):
             patch.set_facecolor(color)
             patch.set_alpha(0.7)
-        ax2.set_ylabel('Daily Orders')
-        ax2.set_title('Orders Distribution by Day of Week', fontweight='bold',
+        ax2.set_ylabel('日订单数')
+        ax2.set_title('一周各天订单分布箱线图', fontweight='bold',
                       fontsize=11)
         ax2.grid(axis='y', alpha=0.3)
 
@@ -288,9 +288,9 @@ class Problem1Analysis:
         ax3.set_xticks(range(len(monthly)))
         ax3.set_xticklabels(monthly['month_label'].values, rotation=45,
                            fontsize=8)
-        ax3.set_ylabel('Total Monthly Orders', color=COLORS['primary'])
-        ax3_2.set_ylabel('Avg Daily Orders', color=COLORS['accent'])
-        ax3.set_title('Monthly Sales Trend', fontweight='bold', fontsize=11)
+        ax3.set_ylabel('月总订单数', color=COLORS['primary'])
+        ax3_2.set_ylabel('日均订单数', color=COLORS['accent'])
+        ax3.set_title('月度销售趋势', fontweight='bold', fontsize=11)
         ax3.grid(axis='y', alpha=0.3)
 
         ax4 = axes[1, 1]
@@ -307,8 +307,8 @@ class Problem1Analysis:
                        edgecolor='white', linewidth=1.5, width=0.5)
         ax4.set_xticks(x_pos)
         ax4.set_xticklabels(categories, fontsize=11)
-        ax4.set_ylabel('Average Daily Orders')
-        ax4.set_title('Weekday vs Weekend Orders', fontweight='bold',
+        ax4.set_ylabel('日均订单数')
+        ax4.set_title('工作日 vs 周末订单对比', fontweight='bold',
                       fontsize=11)
 
         # 显示数值标签
@@ -362,13 +362,13 @@ class Problem1Analysis:
 
         ax1.hist(lunch_vals, bins=40, alpha=0.6,
                 color=COLORS['lunch'],
-                label=f'Lunch (n={len(lunch):,})', density=True)
+                label=f'午餐 (n={len(lunch):,})', density=True)
         ax1.hist(dinner_vals, bins=40, alpha=0.6,
                 color=COLORS['dinner'],
-                label=f'Dinner (n={len(dinner):,}*)', density=True)
-        ax1.set_xlabel('Consumption Amount (Yuan)')
-        ax1.set_ylabel('Density')
-        ax1.set_title('Consumption Distribution:\nLunch vs Dinner',
+                label=f'晚餐 (n={len(dinner):,}*)', density=True)
+        ax1.set_xlabel('消费金额 (元)')
+        ax1.set_ylabel('密度')
+        ax1.set_title('消费金额分布:\n午餐 vs 晚餐',
                       fontweight='bold', fontsize=10)
         ax1.legend(fontsize=8)
 
@@ -380,14 +380,14 @@ class Problem1Analysis:
         ax1.axvline(d_med, color=COLORS['dinner'], linestyle='--', alpha=0.8,
                     linewidth=1.5)
         ax1.text(l_med + 0.3, ax1.get_ylim()[1]*0.85,
-                 f'Lunch median: {l_med:.1f}', fontsize=7,
+                 f'午餐中位数: {l_med:.1f}', fontsize=7,
                  color=COLORS['lunch'])
         ax1.text(d_med + 0.3, ax1.get_ylim()[1]*0.70,
-                 f'Dinner median: {d_med:.1f}', fontsize=7,
+                 f'晚餐中位数: {d_med:.1f}', fontsize=7,
                  color=COLORS['dinner'])
 
         # 添加小样本提示
-        ax1.text(0.98, 0.02, '*Dinner: small sample, ref. only',
+        ax1.text(0.98, 0.02, '* 晚餐样本量小，仅供参考',
                  transform=ax1.transAxes, fontsize=7,
                  ha='right', va='bottom', style='italic',
                  color=COLORS['grey'])
@@ -409,16 +409,16 @@ class Problem1Analysis:
 
         ax2.bar(hours, counts, color=colors_bar, edgecolor='white',
                linewidth=0.5)
-        ax2.set_xlabel('Hour of Day')
-        ax2.set_ylabel('Transaction Count')
-        ax2.set_title('Hourly Transaction Distribution',
+        ax2.set_xlabel('小时')
+        ax2.set_ylabel('交易数')
+        ax2.set_title('小时交易分布',
                       fontweight='bold', fontsize=10)
 
         # 标注午餐和晚餐时段
         ax2.axvspan(LUNCH_START, LUNCH_END, alpha=0.12,
-                   color=COLORS['lunch'], label='Lunch Period')
+                   color=COLORS['lunch'], label='午餐时段')
         ax2.axvspan(DINNER_START, DINNER_END, alpha=0.12,
-                   color=COLORS['dinner'], label='Dinner Period')
+                   color=COLORS['dinner'], label='晚餐时段')
         ax2.legend(fontsize=7)
         ax2.set_xticks(hours)
 
@@ -431,14 +431,14 @@ class Problem1Analysis:
 
         x = np.arange(len(metrics))
         width = 0.35
-        ax3.bar(x - width/2, lunch_means, width, label='Lunch',
+        ax3.bar(x - width/2, lunch_means, width, label='午餐',
                color=COLORS['lunch'], alpha=0.8)
-        ax3.bar(x + width/2, dinner_means, width, label='Dinner',
+        ax3.bar(x + width/2, dinner_means, width, label='晚餐',
                color=COLORS['dinner'], alpha=0.8)
         ax3.set_xticks(x)
         ax3.set_xticklabels(metric_labels, fontsize=8)
-        ax3.set_ylabel('Average per Order')
-        ax3.set_title('Nutrition Comparison:\nLunch vs Dinner',
+        ax3.set_ylabel('每单均值')
+        ax3.set_title('营养对比:\n午餐 vs 晚餐',
                       fontweight='bold', fontsize=10)
         ax3.legend(fontsize=8)
         ax3.grid(axis='y', alpha=0.3)
@@ -465,9 +465,9 @@ class Problem1Analysis:
             normalized = (daily[col] - daily[col].mean()) / daily[col].std()
             ax1.plot(range(len(daily)), normalized.values, color=color,
                     linewidth=1, alpha=0.7, label=label)
-        ax1.set_xlabel('Day Index')
-        ax1.set_ylabel('Normalized Value (Z-score)')
-        ax1.set_title('Daily Nutritional Intake Trends (Z-score)',
+        ax1.set_xlabel('天数序号')
+        ax1.set_ylabel('归一化值 (Z-score)')
+        ax1.set_title('日营养素摄入趋势 (Z-score)',
                       fontweight='bold', fontsize=11)
         ax1.legend(loc='upper left', fontsize=8)
         ax1.axhline(y=0, color='black', linestyle='-', linewidth=0.5)
@@ -495,7 +495,7 @@ class Problem1Analysis:
             startangle=90, textprops={'fontsize': 10}
         )
         ax2.set_title(
-            f'Average Calorie Source Distribution\n'
+            f'日均热量来源构成\n'
             f'(Protein: {avg_protein_cal:.0f} kcal, '
             f'Fat: {avg_fat_cal:.0f} kcal, '
             f'Carbs: {avg_carb_cal:.0f} kcal)',
@@ -522,7 +522,7 @@ class Problem1Analysis:
                    cmap=HEATMAP_CMAP, center=0, square=True,
                    linewidths=0.5, ax=ax3, vmin=-1, vmax=1,
                    cbar_kws={'shrink': 0.8})
-        ax3.set_title('Nutrition & Spending Correlation Matrix',
+        ax3.set_title('营养与消费相关性矩阵',
                       fontweight='bold', fontsize=11)
 
         ax4 = axes[1, 1]
@@ -531,13 +531,13 @@ class Problem1Analysis:
                 edgecolor='white', linewidth=0.3)
         ax4.axvline(order_values.mean(), color=COLORS['danger'],
                    linestyle='--', linewidth=2,
-                   label=f'Mean: {order_values.mean():.1f} yuan')
+                   label=f'均值: {order_values.mean():.1f} 元')
         ax4.axvline(order_values.median(), color=COLORS['accent'],
                    linestyle='--', linewidth=2,
-                   label=f'Median: {order_values.median():.1f} yuan')
-        ax4.set_xlabel('Order Value (Yuan)')
-        ax4.set_ylabel('Frequency')
-        ax4.set_title('Order Value Distribution', fontweight='bold',
+                   label=f'中位数: {order_values.median():.1f} 元')
+        ax4.set_xlabel('订单金额 (元)')
+        ax4.set_ylabel('频数')
+        ax4.set_title('订单金额分布', fontweight='bold',
                       fontsize=11)
         ax4.legend(fontsize=9)
 

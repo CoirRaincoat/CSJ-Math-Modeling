@@ -513,8 +513,8 @@ class Problem3Optimization:
                       edgecolor='white', linewidth=1)
         ax1.set_xticks(x)
         ax1.set_xticklabels(labels, rotation=30)
-        ax1.set_ylabel('Total Servings')
-        ax1.set_title('Daily Lunch Preparation Quantities',
+        ax1.set_ylabel('总备菜份数')
+        ax1.set_title('每日午餐备菜量',
                       fontweight='bold', fontsize=11)
         ax1.grid(axis='y', alpha=0.3)
 
@@ -535,11 +535,11 @@ class Problem3Optimization:
 
         bars2 = ax2.bar(labels, margins, color=COLORS['success'], alpha=0.7,
                        edgecolor='white', linewidth=1)
-        ax2.set_ylabel('Profit Margin (%)')
-        ax2.set_title('Expected Lunch Profit Margin', fontweight='bold',
+        ax2.set_ylabel('利润率 (%)')
+        ax2.set_title('预期午餐利润率', fontweight='bold',
                       fontsize=11)
         ax2.axhline(y=30, color=COLORS['accent'], linestyle='--', alpha=0.5,
-                   linewidth=1, label='30% target')
+                   linewidth=1, label='30% 目标')
         ax2.legend(fontsize=9)
         ax2.tick_params(axis='x', rotation=30)
 
@@ -609,9 +609,9 @@ class Problem3Optimization:
         actual_values += actual_values[:1]
 
         ax4.fill(angles, target_values, alpha=0.15, color=COLORS['primary'],
-                label='DRIs Target')
+                label='DRIs 标准')
         ax4.plot(angles, actual_values, 'o-', color=COLORS['accent'],
-                linewidth=2, label='Actual Supply')
+                linewidth=2, label='实际供给')
         ax4.fill(angles, actual_values, alpha=0.2, color=COLORS['accent'])
         ax4.set_xticks(angles[:-1])
         ax4.set_xticklabels(nutrient_labels_zh, fontsize=9)

@@ -490,7 +490,7 @@ class Problem4Combos:
             'Total Price (Yuan)': [
                 all_combos[p]['total_price'] for p in prices
             ],
-            'Profit Margin (%)': [
+            '利润率 (%)': [
                 all_combos[p]['profit_margin'] for p in prices
             ],
             'Nutrition Balance (%)': [
@@ -512,9 +512,9 @@ class Problem4Combos:
                    label=metric_name, color=colors_m[i], alpha=0.8)
 
         ax1.set_xticks(x)
-        ax1.set_xticklabels([f'{p} Yuan' for p in prices], fontsize=10)
-        ax1.set_ylabel('Value')
-        ax1.set_title('Combo Comparison Across Price Levels',
+        ax1.set_xticklabels([f'{p} 元' for p in prices], fontsize=10)
+        ax1.set_ylabel('数值')
+        ax1.set_title('各价位套餐指标对比',
                      fontweight='bold', fontsize=11)
         ax1.legend(loc='upper left', fontsize=8)
         ax1.grid(axis='y', alpha=0.3)
@@ -547,11 +547,11 @@ class Problem4Combos:
                     color=color_cycle[i])
             ax2.plot(angles, norm_values, 'o-', linewidth=2,
                     color=color_cycle[i],
-                    label=f'{price} Yuan')
+                    label=f'{price} 元')
 
         ax2.set_xticks(angles[:-1])
         ax2.set_xticklabels(nutri_labels, fontsize=8)
-        ax2.set_title('Nutrition Comparison (Normalized)',
+        ax2.set_title('营养成分对比 (归一化)',
                      fontweight='bold', fontsize=11, pad=20)
         ax2.legend(loc='upper right', bbox_to_anchor=(1.3, 1.1),
                   fontsize=8)

@@ -64,8 +64,8 @@ for label, mask in [('With detail', df1['has_detail']==1), ('No detail', df1['ha
     ax.hist(df1.loc[mask, 'hour'], bins=range(7,20), alpha=0.5, 
             label=f'{label} (n={mask.sum():,})', density=True)
 ax.set_xlabel('小时')
-ax.set_ylabel('Density')
-ax.set_title('Hourly Distribution: With vs Without Detail')
+ax.set_ylabel('密度')
+ax.set_title('小时分布: 有明细 vs 无明细')
 ax.legend(fontsize=7)
 ax.grid(alpha=0.3)
 
@@ -82,7 +82,7 @@ ax.bar(x+w/2, [dow_nodetail.get(i,0) for i in range(7)], w,
        label='无明细', color=COLORS['accent'], alpha=0.8)
 ax.set_xticks(x)
 ax.set_xticklabels(dow_names)
-ax.set_title('Day-of-Week Distribution')
+ax.set_title('星期分布')
 ax.legend(fontsize=7)
 
 # 1c. Order value distribution + KS test
@@ -111,7 +111,7 @@ for i, col in enumerate(['calories', 'protein', 'fat']):
     ax.set_title(f'{col}\nKS p={ks_pv:.4f}, means: {v1.mean():.0f} vs {v2.mean():.0f}')
     ax.legend(fontsize=7)
     if i == 0:
-        ax.set_ylabel('Density')
+        ax.set_ylabel('密度')
 
 plt.tight_layout()
 fig.savefig(f'{OUTDIR}/p1_coverage_bias.png', dpi=300)
@@ -342,7 +342,7 @@ ax.axvline(df_mc['profit'].quantile(0.05), color=COLORS['warning'], linestyle=':
 ax.axvline(df_mc['profit'].quantile(0.95), color=COLORS['warning'], linestyle=':',
            label=f'95th %ile: {df_mc["profit"].quantile(0.95):.0f}')
 ax.set_xlabel('预期利润 (元/天)')
-ax.set_ylabel('Frequency')
+ax.set_ylabel('频数')
 ax.set_title('Monte Carlo: Profit Distribution\n(200 perturbations)')
 ax.legend(fontsize=8)
 ax.grid(alpha=0.3)

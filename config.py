@@ -153,12 +153,12 @@ plt.rcParams['figure.dpi'] = 150               # 显示分辨率
 plt.rcParams['savefig.dpi'] = 300              # 保存分辨率 (满足 Nature 300dpi 要求)
 plt.rcParams['savefig.bbox'] = 'tight'         # 自动裁剪边缘空白
 # 全局加大字号 - 确保图表中的标签、图例足够大且醒目
-plt.rcParams['font.size'] = 12
-plt.rcParams['axes.titlesize'] = 14
-plt.rcParams['axes.labelsize'] = 13
-plt.rcParams['xtick.labelsize'] = 10
-plt.rcParams['ytick.labelsize'] = 10
-plt.rcParams['legend.fontsize'] = 10
+plt.rcParams['font.size'] = 14
+plt.rcParams['axes.titlesize'] = 16
+plt.rcParams['axes.labelsize'] = 15
+plt.rcParams['xtick.labelsize'] = 12
+plt.rcParams['ytick.labelsize'] = 12
+plt.rcParams['legend.fontsize'] = 12
 
 # Nature 期刊配色方案 (NPG Palette)
 COLORS = {
