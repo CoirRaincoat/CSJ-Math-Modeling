@@ -66,7 +66,7 @@ for label, mask in [('With detail', df1['has_detail']==1), ('No detail', df1['ha
 ax.set_xlabel('小时')
 ax.set_ylabel('密度')
 ax.set_title('小时分布: 有明细 vs 无明细')
-ax.legend(fontsize=7)
+ax.legend(fontsize=12)
 ax.grid(alpha=0.3)
 
 # 1b. Day of week distribution
@@ -83,7 +83,7 @@ ax.bar(x+w/2, [dow_nodetail.get(i,0) for i in range(7)], w,
 ax.set_xticks(x)
 ax.set_xticklabels(dow_names)
 ax.set_title('星期分布')
-ax.legend(fontsize=7)
+ax.legend(fontsize=12)
 
 # 1c. Order value distribution + KS test
 ax = axes[0, 2]
@@ -91,11 +91,11 @@ val_detail = df1[df1['has_detail']==1]['consume_money'].clip(upper=30)
 val_nodetail = df1[df1['has_detail']==0]['consume_money'].clip(upper=30)
 ks_stat, ks_p = stats.ks_2samp(val_detail, val_nodetail)
 ax.hist(val_detail, bins=50, alpha=0.5, density=True, 
-        color=COLORS['primary'], label=f'With detail (mean={val_detail.mean():.1f})')
+        color=COLORS['primary'], label=f'有明细 (均值={val_detail.mean():.1f})')
 ax.hist(val_nodetail, bins=50, alpha=0.5, density=True,
-        color=COLORS['accent'], label=f'No detail (mean={val_nodetail.mean():.1f})')
-ax.set_title(f'Order Value Distribution\nKS test: stat={ks_stat:.4f}, p={ks_p:.4f}')
-ax.legend(fontsize=7)
+        color=COLORS['accent'], label=f'无明细 (均值={val_nodetail.mean():.1f})')
+ax.set_title(f'订单金额分布\nKS检验: stat={ks_stat:.4f}, p={ks_p:.4f}')
+ax.legend(fontsize=12)
 ax.set_xlabel('订单金额 (元)')
 
 # 1d. Nutrition per order comparison
@@ -105,11 +105,11 @@ for i, col in enumerate(['calories', 'protein', 'fat']):
     v2 = df1[df1['has_detail']==0][col]
     ks_s, ks_pv = stats.ks_2samp(v1, v2)
     ax.hist(v1.clip(upper=v1.quantile(0.95)), bins=50, alpha=0.5, density=True,
-            color=COLORS['primary'], label=f'With detail')
+            color=COLORS['primary'], label=f'有明细')
     ax.hist(v2.clip(upper=v2.quantile(0.95)), bins=50, alpha=0.5, density=True,
-            color=COLORS['accent'], label=f'No detail')
-    ax.set_title(f'{col}\nKS p={ks_pv:.4f}, means: {v1.mean():.0f} vs {v2.mean():.0f}')
-    ax.legend(fontsize=7)
+            color=COLORS['accent'], label=f'无明细')
+    ax.set_title(f'{col}\nKS p={ks_pv:.4f}, 均值: {v1.mean():.0f} vs {v2.mean():.0f}')
+    ax.legend(fontsize=12)
     if i == 0:
         ax.set_ylabel('密度')
 
@@ -198,8 +198,8 @@ stability_pcts = [rule_stability.get(k, 0)/n_bootstrap*100 for k in baseline_rul
 ax.hist(stability_pcts, bins=20, color=COLORS['primary'], alpha=0.8, edgecolor='white')
 ax.axvline(x=80, color=COLORS['accent'], linestyle='--', label='80% 阈值')
 ax.set_xlabel('Bootstrap 生存率 (%)')
-ax.set_ylabel('Number of Baseline Rules')
-ax.set_title(f'Apriori Rule Bootstrap Stability\n(median survival: {np.median(stability_pcts):.0f}%)')
+ax.set_ylabel('基线规则数')
+ax.set_title(f'Apriori规则Bootstrap稳定性\n(中位生存率: {np.median(stability_pcts):.0f}%)')
 ax.legend()
 
 # Lift CV
@@ -209,8 +209,8 @@ keys_with_data = [(k, np.std(lift_variance[k])/max(np.mean(lift_variance[k]),0.0
 if keys_with_data:
     cvs = [v for _, v in keys_with_data]
     ax.boxplot(cvs)
-    ax.set_ylabel('Lift CV (%)')
-    ax.set_title(f'Lift Coefficient of Variation Across Bootstraps\n(median CV: {np.median(cvs):.1f}%)')
+    ax.set_ylabel('提升度CV (%)')
+    ax.set_title(f'Bootstrap提升度变异系数\n(中位CV: {np.median(cvs):.1f}%)')
 
 plt.tight_layout()
 fig.savefig(f'{OUTDIR}/p1_bootstrap_rules.png', dpi=300)
@@ -264,7 +264,7 @@ bars = ax.barh(range(15), imp_sorted[::-1], color=COLORS['primary'], alpha=0.8, 
 ax.set_yticks(range(15))
 ax.set_yticklabels(feat_names_sorted[::-1], fontsize=9)
 ax.set_xlabel('特征重要性 (gain)')
-ax.set_title('XGBoost Feature Importance: Daily Orders Prediction\n(gain-based, top 15 features)', fontweight='bold')
+ax.set_title('XGBoost特征重要性: 日订单数预测\n(gain-based, Top 15特征)', fontweight='bold')
 ax.grid(axis='x', alpha=0.3)
 
 # Categorize features
@@ -336,15 +336,15 @@ fig, axes = plt.subplots(1, 3, figsize=(16, 5))
 ax = axes[0]
 ax.hist(df_mc['profit'], bins=30, color=COLORS['primary'], alpha=0.7, edgecolor='white')
 ax.axvline(df_mc['profit'].mean(), color=COLORS['accent'], linestyle='--', linewidth=2,
-           label=f'Mean: {df_mc["profit"].mean():.0f}')
+           label=f'均值: {df_mc["profit"].mean():.0f}')
 ax.axvline(df_mc['profit'].quantile(0.05), color=COLORS['warning'], linestyle=':', 
-           label=f'5th %ile: {df_mc["profit"].quantile(0.05):.0f}')
+           label=f'5%分位: {df_mc["profit"].quantile(0.05):.0f}')
 ax.axvline(df_mc['profit'].quantile(0.95), color=COLORS['warning'], linestyle=':',
-           label=f'95th %ile: {df_mc["profit"].quantile(0.95):.0f}')
+           label=f'95%分位: {df_mc["profit"].quantile(0.95):.0f}')
 ax.set_xlabel('预期利润 (元/天)')
 ax.set_ylabel('频数')
-ax.set_title('Monte Carlo: Profit Distribution\n(200 perturbations)')
-ax.legend(fontsize=8)
+ax.set_title('Monte Carlo: 利润分布\n(200次扰动)')
+ax.legend(fontsize=12)
 ax.grid(alpha=0.3)
 
 # Sensitivity: demand vs profit
@@ -353,7 +353,7 @@ sc = ax.scatter(df_mc['demand_factor'], df_mc['profit'],
                 c=df_mc['waste_factor'], cmap='YlOrRd', alpha=0.6, s=20)
 plt.colorbar(sc, ax=ax, label='浪费因子')
 ax.set_xlabel('需求因子 (1.0 = 基准)')
-ax.set_ylabel('Profit (yuan/day)')
+ax.set_ylabel('利润 (元/天)')
 ax.set_title(f'Demand Sensitivity\n(correlation: {df_mc["demand_factor"].corr(df_mc["profit"]):.3f})')
 ax.grid(alpha=0.3)
 
@@ -368,7 +368,7 @@ sorted_corr = sorted(correlations.items(), key=lambda x: x[1])
 ax.barh([x[0] for x in sorted_corr], [x[1] for x in sorted_corr],
         color=[COLORS['primary'], COLORS['accent'], COLORS['secondary']])
 ax.set_xlabel('|与利润的相关性|')
-ax.set_title('Parameter Sensitivity Ranking\n(Tornado diagram)')
+ax.set_title('参数敏感性排名\n(飓风图)')
 ax.grid(axis='x', alpha=0.3)
 
 plt.tight_layout()
@@ -423,7 +423,7 @@ for i, col in enumerate(['calories', 'protein', 'fat', 'carbohydrates', 'fiber']
     ax.set_ylabel('附件2')
     diff_pct = np.mean(np.abs(sample[col] - sample[f'a2_{col}']) / sample[col].clip(lower=1) * 100)
     ax.set_title(f'{col}\n(MAPE={diff_pct:.1f}%, corr={sample[col].corr(sample[f"a2_{col}"]):.3f})')
-    ax.legend(fontsize=7)
+    ax.legend(fontsize=12)
     ax.grid(alpha=0.3)
 
 # Remove 6th subplot if exists

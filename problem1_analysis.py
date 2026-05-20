@@ -370,7 +370,7 @@ class Problem1Analysis:
         ax1.set_ylabel('密度')
         ax1.set_title('消费金额分布:\n午餐 vs 晚餐',
                       fontweight='bold', fontsize=10)
-        ax1.legend(fontsize=8)
+        ax1.legend(fontsize=12)
 
         # 标注中位数
         l_med = lunch['consume_money'].median()
@@ -419,7 +419,7 @@ class Problem1Analysis:
                    color=COLORS['lunch'], label='午餐时段')
         ax2.axvspan(DINNER_START, DINNER_END, alpha=0.12,
                    color=COLORS['dinner'], label='晚餐时段')
-        ax2.legend(fontsize=7)
+        ax2.legend(fontsize=12)
         ax2.set_xticks(hours)
 
         ax3 = axes[2]
@@ -440,7 +440,7 @@ class Problem1Analysis:
         ax3.set_ylabel('每单均值')
         ax3.set_title('营养对比:\n午餐 vs 晚餐',
                       fontweight='bold', fontsize=10)
-        ax3.legend(fontsize=8)
+        ax3.legend(fontsize=12)
         ax3.grid(axis='y', alpha=0.3)
 
         plt.tight_layout()
@@ -539,7 +539,7 @@ class Problem1Analysis:
         ax4.set_ylabel('频数')
         ax4.set_title('订单金额分布', fontweight='bold',
                       fontsize=11)
-        ax4.legend(fontsize=9)
+        ax4.legend(fontsize=12)
 
         plt.tight_layout()
         fig.savefig(f'{OUTPUT_DIR}/p1_nutrition_analysis.png', dpi=300)
@@ -631,11 +631,11 @@ class Problem1Analysis:
         )
         cbar = plt.colorbar(scatter, ax=ax1)
         cbar.set_label('Lift')
-        ax1.set_xlabel('Support')
-        ax1.set_ylabel('Confidence')
+        ax1.set_xlabel('支持度')
+        ax1.set_ylabel('置信度')
         ax1.set_title(
-            'Association Rules: Support vs Confidence\n'
-            '(point size & color = Lift)',
+            '关联规则: 支持度 vs 置信度\n'
+            '(点大小与颜色 = 提升度)',
             fontweight='bold', fontsize=11
         )
         ax1.grid(alpha=0.3)

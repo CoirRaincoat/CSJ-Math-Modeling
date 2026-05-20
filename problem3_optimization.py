@@ -540,7 +540,7 @@ class Problem3Optimization:
                       fontsize=11)
         ax2.axhline(y=30, color=COLORS['accent'], linestyle='--', alpha=0.5,
                    linewidth=1, label='30% 目标')
-        ax2.legend(fontsize=9)
+        ax2.legend(fontsize=12)
         ax2.tick_params(axis='x', rotation=30)
 
         # 添加数值标注

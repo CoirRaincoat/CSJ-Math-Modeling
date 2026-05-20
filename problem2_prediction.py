@@ -28,12 +28,12 @@ class Problem2Prediction:
     TARGET_COLS = ['total_orders', 'total_sales', 'total_calories',
                    'total_protein', 'total_fat', 'total_carbohydrates']
     TARGET_NAMES = {
-        'total_orders': 'Daily Diners',
+        'total_orders': '日就餐人数',
         'total_sales': '日销售额 (元)',
-        'total_calories': 'Daily Calories (kcal)',
-        'total_protein': 'Daily Protein (g)',
-        'total_fat': 'Daily Fat (g)',
-        'total_carbohydrates': 'Daily Carbs (g)',
+        'total_calories': '日总热量 (kcal)',
+        'total_protein': '日总蛋白质 (g)',
+        'total_fat': '日总脂肪 (g)',
+        'total_carbohydrates': '日总碳水 (g)',
     }
 
     def __init__(self, loader=None):
@@ -538,7 +538,7 @@ class Problem2Prediction:
         ax.set_title(f'Walk-Forward 验证: {self.TARGET_NAMES[target_col]}\n'
                     f'(MAE={wf_mae:.1f}, MAPE={wf_mape:.1f}%)')
         ax.set_ylabel(self.TARGET_NAMES[target_col])
-        ax.legend(fontsize=8)
+        ax.legend(fontsize=12)
         ax.grid(alpha=0.3)
 
         ax = axes[1]
@@ -713,7 +713,7 @@ class Problem2Prediction:
             ax.set_title(f'{name} — 2025年5月工作日预测', fontweight='bold', fontsize=10)
             ax.set_ylabel(name)
             ax.grid(axis='y', alpha=0.3)
-            ax.legend(fontsize=8)
+            ax.legend(fontsize=12)
 
         plt.tight_layout()
         fig.savefig(f'{OUTPUT_DIR}/p2_may2025_predictions.png', dpi=300)
